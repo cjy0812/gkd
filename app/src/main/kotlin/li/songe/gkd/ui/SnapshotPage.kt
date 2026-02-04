@@ -4,41 +4,51 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImagePainter
+import coil3.compose.rememberAsyncImagePainter
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.generated.destinations.ImagePreviewPageDestination
@@ -57,7 +67,6 @@ import li.songe.gkd.ui.component.PerfIconButton
 import li.songe.gkd.ui.component.PerfTopAppBar
 import li.songe.gkd.ui.component.animateListItem
 import li.songe.gkd.ui.component.measureNumberTextWidth
-import li.songe.gkd.ui.component.useListScrollState
 import li.songe.gkd.ui.component.waitResult
 import li.songe.gkd.ui.share.ListPlaceholder
 import li.songe.gkd.ui.share.LocalMainViewModel
@@ -78,8 +87,10 @@ import li.songe.gkd.util.saveFileToDownloads
 import li.songe.gkd.util.shareFile
 import li.songe.gkd.util.throttle
 import li.songe.gkd.util.toast
+import li.songe.gkd.util.format
 
 @Destination<RootGraph>(style = ProfileTransitions::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SnapshotPage() {
     val context = LocalActivity.current as MainActivity
@@ -89,14 +100,63 @@ fun SnapshotPage() {
 
     val firstLoading by vm.firstLoadingFlow.collectAsState()
     val snapshots by vm.snapshotsState.collectAsState()
+    val appInfoMap by appInfoMapFlow.collectAsState()
     var selectedSnapshot by remember { mutableStateOf<Snapshot?>(null) }
-    val resetKey = rememberSaveable { mutableIntStateOf(0) }
-    val (scrollBehavior, listState) = useListScrollState(
-        resetKey,
-        snapshots.isEmpty(),
-        firstLoading,
-    )
+    var groupMode by rememberSaveable { mutableStateOf(SnapshotGroupMode.App) }
+    var filterText by rememberSaveable { mutableStateOf("") }
+    var selectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val gridState = rememberLazyGridState()
+    val scrollBehavior = androidx.compose.material3.TopAppBarDefaults.enterAlwaysScrollBehavior()
     val timeTextWidth = measureNumberTextWidth(MaterialTheme.typography.bodySmall)
+    val filteredSnapshots = remember(snapshots, filterText) {
+        if (filterText.isBlank()) {
+            snapshots
+        } else {
+            snapshots.filter { snapshot ->
+                snapshot.appId.contains(filterText, ignoreCase = true) ||
+                    snapshot.activityId?.contains(filterText, ignoreCase = true) == true
+            }
+        }
+    }
+    val groupedSnapshots = remember(filteredSnapshots, groupMode, appInfoMap) {
+        when (groupMode) {
+            SnapshotGroupMode.App -> {
+                filteredSnapshots.groupBy { it.appId }.map { (appId, group) ->
+                    SnapshotGroup(
+                        key = appId,
+                        title = appInfoMap[appId]?.name ?: appId,
+                        count = group.size,
+                        snapshots = group,
+                    )
+                }.sortedBy { it.title }
+            }
+
+            SnapshotGroupMode.Activity -> {
+                filteredSnapshots.groupBy { it.activityId ?: "null" }.map { (activityId, group) ->
+                    SnapshotGroup(
+                        key = activityId,
+                        title = activityId,
+                        count = group.size,
+                        snapshots = group,
+                    )
+                }.sortedBy { it.title }
+            }
+
+            SnapshotGroupMode.Date -> {
+                filteredSnapshots.groupBy { it.id.format("yyyy-MM-dd") }.map { (date, group) ->
+                    SnapshotGroup(
+                        key = date,
+                        title = date,
+                        count = group.size,
+                        snapshots = group,
+                    )
+                }.sortedByDescending { it.title }
+            }
+        }
+    }
+    val isSelectionMode = selectionMode || selectedIds.isNotEmpty()
+    val selectionCount = selectedIds.size
 
     Scaffold(modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection), topBar = {
         PerfTopAppBar(
@@ -107,13 +167,63 @@ fun SnapshotPage() {
                 })
             },
             title = {
+                val scrollToTop = vm.viewModelScope.launchAsFn {
+                    gridState.animateScrollToItem(0)
+                }
                 Text(
                     text = "快照记录",
-                    modifier = Modifier.noRippleClickable { resetKey.intValue++ },
+                    modifier = Modifier.noRippleClickable(onClick = throttle(scrollToTop)),
                 )
             },
             actions = {
-                if (snapshots.isNotEmpty()) {
+                if (isSelectionMode) {
+                    PerfIconButton(
+                        imageVector = PerfIcon.Close,
+                        onClick = {
+                            selectedIds = emptySet()
+                            selectionMode = false
+                        }
+                    )
+                    val selectAllLabel = if (selectionCount == filteredSnapshots.size) "取消全选" else "全选"
+                    PerfIconButton(
+                        imageVector = PerfIcon.Check,
+                        onClick = {
+                            selectedIds = if (selectionCount == filteredSnapshots.size) {
+                                emptySet()
+                            } else {
+                                filteredSnapshots.map { it.id }.toSet()
+                            }
+                        },
+                        onClickLabel = selectAllLabel,
+                    )
+                    PerfIconButton(
+                        imageVector = PerfIcon.Delete,
+                        enabled = selectionCount > 0,
+                        onClick = throttle(fn = vm.viewModelScope.launchAsFn(Dispatchers.IO) {
+                            val selectedSnapshots = snapshots.filter { it.id in selectedIds }
+                            if (selectedSnapshots.isEmpty()) return@launchAsFn
+                            mainVm.dialogFlow.waitResult(
+                                title = "删除快照",
+                                text = "确定删除选中的 ${selectedSnapshots.size} 条快照吗?",
+                                error = true,
+                            )
+                            DbSet.snapshotDao.delete(*selectedSnapshots.toTypedArray())
+                            withContext(Dispatchers.IO) {
+                                selectedSnapshots.forEach { snapshot ->
+                                    SnapshotExt.removeSnapshot(snapshot.id)
+                                }
+                            }
+                            selectedIds = emptySet()
+                            selectionMode = false
+                            toast("删除成功")
+                        })
+                    )
+                } else if (snapshots.isNotEmpty()) {
+                    PerfIconButton(
+                        imageVector = PerfIcon.Check,
+                        onClick = { selectionMode = true },
+                        onClickLabel = "多选管理",
+                    )
                     PerfIconButton(
                         imageVector = PerfIcon.Delete,
                         onClick = throttle(fn = vm.viewModelScope.launchAsFn(Dispatchers.IO) {
@@ -126,6 +236,7 @@ fun SnapshotPage() {
                                 SnapshotExt.removeSnapshot(s.id)
                             }
                             DbSet.snapshotDao.deleteAll()
+                            toast("删除成功")
                         })
                     )
                 }
@@ -134,23 +245,59 @@ fun SnapshotPage() {
         CompositionLocalProvider(
             LocalNumberCharWidth provides timeTextWidth
         ) {
-            LazyColumn(
+            LazyVerticalGrid(
                 modifier = Modifier.scaffoldPadding(contentPadding),
-                state = listState,
+                state = gridState,
+                columns = GridCells.Adaptive(minSize = 140.dp),
             ) {
-                items(snapshots, { it.id }) { snapshot ->
-                    SnapshotCard(
-                        modifier = Modifier.animateListItem(),
-                        snapshot = snapshot,
-                        onClick = {
-                            selectedSnapshot = snapshot
-                        }
-                    )
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        FilterPanel(
+                            filterText = filterText,
+                            onFilterTextChange = { filterText = it },
+                            groupMode = groupMode,
+                            onGroupModeChange = { groupMode = it },
+                            selectedCount = selectionCount,
+                            totalCount = filteredSnapshots.size,
+                        )
+                    }
                 }
-                item(ListPlaceholder.KEY, ListPlaceholder.TYPE) {
+                groupedSnapshots.forEach { group ->
+                    item(
+                        key = "group-${group.key}",
+                        span = { GridItemSpan(maxLineSpan) }
+                    ) {
+                        SnapshotGroupHeader(
+                            title = group.title,
+                            count = group.count,
+                        )
+                    }
+                    items(group.snapshots, key = { it.id }) { snapshot ->
+                        SnapshotGridCard(
+                            modifier = Modifier.animateListItem(),
+                            snapshot = snapshot,
+                            selected = snapshot.id in selectedIds,
+                            selectionMode = isSelectionMode,
+                            onToggleSelect = {
+                                selectedIds = if (snapshot.id in selectedIds) {
+                                    selectedIds - snapshot.id
+                                } else {
+                                    selectedIds + snapshot.id
+                                }
+                                selectionMode = true
+                            },
+                            onPreview = {
+                                selectedSnapshot = snapshot
+                            },
+                        )
+                    }
+                }
+                item(ListPlaceholder.KEY, ListPlaceholder.TYPE, span = { GridItemSpan(maxLineSpan) }) {
                     Spacer(modifier = Modifier.height(EmptyHeight))
                     if (snapshots.isEmpty() && !firstLoading) {
                         EmptyText(text = "暂无数据")
+                    } else if (filteredSnapshots.isEmpty() && !firstLoading) {
+                        EmptyText(text = "暂无匹配快照")
                     }
                 }
             }
@@ -302,71 +449,282 @@ fun SnapshotPage() {
 }
 
 @Composable
-private fun SnapshotCard(
+private fun SnapshotGridCard(
     modifier: Modifier = Modifier,
     snapshot: Snapshot,
-    onClick: () -> Unit,
+    selected: Boolean,
+    selectionMode: Boolean,
+    onToggleSelect: () -> Unit,
+    onPreview: () -> Unit,
 ) {
-    Row(
+    Card(
         modifier = modifier
-            .clickable(onClick = onClick)
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .padding(horizontal = itemHorizontalPadding, vertical = itemVerticalPadding / 2)
+            .padding(horizontal = itemHorizontalPadding / 2, vertical = itemVerticalPadding / 2)
+            .combinedClickable(
+                onClick = {
+                    if (selectionMode) {
+                        onToggleSelect()
+                    } else {
+                        onPreview()
+                    }
+                },
+                onLongClick = onToggleSelect,
+            ),
+        shape = RoundedCornerShape(12.dp),
     ) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(2.dp)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-        ) {
-            Row(
+        Column {
+            Box(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                val appInfo = appInfoMapFlow.collectAsState().value[snapshot.appId]
-                val showAppName = appInfo?.name ?: snapshot.appId
-                Text(
-                    text = showAppName,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1,
-                    softWrap = false,
+                SnapshotThumbnail(
+                    snapshot = snapshot,
+                    dimmed = selectionMode && !selected,
                 )
-                FixedTimeText(
-                    text = snapshot.date,
+                if (selectionMode) {
+                    SelectionBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp),
+                        selected = selected,
+                    )
+                }
+            }
+            SnapshotMeta(
+                snapshot = snapshot,
+                modifier = Modifier.padding(8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SnapshotThumbnail(
+    snapshot: Snapshot,
+    dimmed: Boolean,
+) {
+    val context = LocalActivity.current
+    val model = remember(snapshot.id) {
+        ImageRequest.Builder(context)
+            .data(snapshot.screenshotFile.absolutePath)
+            .diskCachePolicy(CachePolicy.DISABLED)
+            .memoryCachePolicy(CachePolicy.DISABLED)
+            .build()
+    }
+    val painter = rememberAsyncImagePainter(model)
+    val state by painter.state.collectAsState()
+    val placeholderAlpha = if (dimmed) 0.6f else 1f
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(140.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        when (state) {
+            is AsyncImagePainter.State.Success -> {
+                androidx.compose.foundation.Image(
+                    painter = painter,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .alpha(placeholderAlpha),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+
+            is AsyncImagePainter.State.Loading -> {
+                Text(
+                    text = "加载中",
+                    modifier = Modifier.align(Alignment.Center),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            val showActivityId = if (snapshot.activityId != null) {
-                if (snapshot.activityId.startsWith(snapshot.appId)) {
-                    snapshot.activityId.substring(snapshot.appId.length)
-                } else {
-                    snapshot.activityId
-                }
-            } else {
-                null
-            }
-            if (showActivityId != null) {
+
+            is AsyncImagePainter.State.Error -> {
                 Text(
-                    modifier = Modifier.height(MaterialTheme.typography.bodyMedium.lineHeight.value.dp),
-                    text = showActivityId,
-                    style = MaterialTheme.typography.bodyMedium,
-                    softWrap = false,
-                    maxLines = 1,
-                    overflow = TextOverflow.MiddleEllipsis,
+                    text = "预览失败",
+                    modifier = Modifier.align(Alignment.Center),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun SnapshotMeta(
+    snapshot: Snapshot,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        val appInfo = appInfoMapFlow.collectAsState().value[snapshot.appId]
+        val showAppName = appInfo?.name ?: snapshot.appId
+        Text(
+            text = showAppName,
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 1,
+            softWrap = false,
+        )
+        FixedTimeText(
+            text = snapshot.date,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        val showActivityId = snapshot.activityId?.let {
+            if (it.startsWith(snapshot.appId)) {
+                it.substring(snapshot.appId.length)
+            } else {
+                it
+            }
+        }
+        if (showActivityId != null) {
+            Text(
+                modifier = Modifier.height(MaterialTheme.typography.bodyMedium.lineHeight.value.dp),
+                text = showActivityId,
+                style = MaterialTheme.typography.bodySmall,
+                softWrap = false,
+                maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis,
+            )
+        } else {
+            Text(
+                text = "null",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.typography.bodySmall.color.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SelectionBadge(
+    modifier: Modifier = Modifier,
+    selected: Boolean,
+) {
+    Box(
+        modifier = modifier
+            .background(
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                shape = RoundedCornerShape(10.dp),
+            )
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = if (selected) "已选" else "选择",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+    }
+}
+
+@Composable
+private fun FilterPanel(
+    filterText: String,
+    onFilterTextChange: (String) -> Unit,
+    groupMode: SnapshotGroupMode,
+    onGroupModeChange: (SnapshotGroupMode) -> Unit,
+    selectedCount: Int,
+    totalCount: Int,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = itemHorizontalPadding, vertical = itemVerticalPadding / 2),
+    ) {
+        TextField(
+            value = filterText,
+            onValueChange = onFilterTextChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text(text = "过滤 appId / activityId") },
+            singleLine = true,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SnapshotGroupMode.values().forEach { mode ->
+                    val selected = mode == groupMode
+                    Text(
+                        text = mode.label,
+                        modifier = Modifier
+                            .background(
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            .clickable { onGroupModeChange(mode) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+            if (selectedCount > 0) {
+                Text(
+                    text = "已选 $selectedCount / $totalCount",
+                    style = MaterialTheme.typography.labelMedium,
                 )
             } else {
                 Text(
-                    text = "null",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.typography.bodyMedium.color.copy(alpha = 0.5f)
+                    text = "共 $totalCount",
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
         }
     }
+}
+
+@Composable
+private fun SnapshotGroupHeader(
+    title: String,
+    count: Int,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = itemHorizontalPadding, vertical = itemVerticalPadding / 2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "($count)",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private data class SnapshotGroup(
+    val key: String,
+    val title: String,
+    val count: Int,
+    val snapshots: List<Snapshot>,
+)
+
+private enum class SnapshotGroupMode(val label: String) {
+    App("按应用"),
+    Activity("按界面"),
+    Date("按日期"),
 }

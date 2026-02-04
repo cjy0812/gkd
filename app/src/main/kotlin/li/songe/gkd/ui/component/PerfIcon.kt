@@ -152,6 +152,7 @@ fun getIconDefaultDesc(imageVector: ImageVector): String? = when (imageVector) {
     PerfIcon.Share -> "分享"
     PerfIcon.Settings -> "设置"
     PerfIcon.Close -> "关闭"
+    PerfIcon.Check -> "选择"
     PerfIcon.ArrowBack -> "返回"
     PerfIcon.HelpOutline -> "帮助"
     PerfIcon.ToggleOff -> "关闭"
@@ -180,6 +181,7 @@ object PerfIcon {
     val Delete get() = Icons.Outlined.Delete
     val Eco get() = Icons.Outlined.Eco
     val Close get() = Icons.Default.Close
+    val Check get() = Icons.Outlined.Check
     val OpenInNew get() = Icons.AutoMirrored.Outlined.OpenInNew
     val Settings get() = Icons.Outlined.Settings
     val Home get() = Icons.Outlined.Home
@@ -209,5 +211,4 @@ object PerfIcon {
     val Title get() = Icons.Outlined.Title
     val TextFields get() = Icons.Outlined.TextFields
     val ArrowDownward get() = Icons.Outlined.ArrowDownward
-    val Check get() = Icons.Outlined.Check
 }
