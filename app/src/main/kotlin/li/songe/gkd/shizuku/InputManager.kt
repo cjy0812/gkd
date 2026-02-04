@@ -37,6 +37,18 @@ class SafeInputManager(private val value: IInputManager) {
         }
     }
 
+    @WorkerThread
+    fun swipe(
+        x1: Float,
+        y1: Float,
+        x2: Float,
+        y2: Float,
+        duration: Long,
+        isDragDrop: Boolean = false,
+    ) {
+        command.runSwipe(x1, y1, x2, y2, duration, isDragDrop)
+    }
+
     fun key(keyCode: Int) = command.runKeyEvent(keyCode)
 
 }
