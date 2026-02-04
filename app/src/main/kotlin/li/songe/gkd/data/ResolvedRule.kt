@@ -158,7 +158,7 @@ sealed class ResolvedRule(
         ActionPerformer.ClickCenter.action
     })
 
-    fun performAction(node: AccessibilityNodeInfo): ActionResult {
+    suspend fun performAction(node: AccessibilityNodeInfo): ActionResult {
         return performer.perform(node, rule.position)
     }
 
