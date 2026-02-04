@@ -38,7 +38,14 @@ class InputShellCommand(val safeInputManager: SafeInputManager) {
         sendTap(InputDevice.SOURCE_TOUCHSCREEN, x, y, Display.INVALID_DISPLAY)
     }
 
-    fun runSwipe(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long) {
+    fun runSwipe(
+        x1: Float,
+        y1: Float,
+        x2: Float,
+        y2: Float,
+        duration: Long,
+        isDragDrop: Boolean = false,
+    ) {
         sendSwipe(
             InputDevice.SOURCE_TOUCHSCREEN,
             x1,
@@ -47,7 +54,7 @@ class InputShellCommand(val safeInputManager: SafeInputManager) {
             y2,
             duration,
             Display.INVALID_DISPLAY,
-            false,
+            isDragDrop,
         )
     }
 
