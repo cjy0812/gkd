@@ -158,7 +158,11 @@ sealed class ResolvedRule(
         ActionPerformer.ClickCenter.action
     })
 
-    fun performAction(node: AccessibilityNodeInfo): ActionResult {
+    suspend fun performAction(node: AccessibilityNodeInfo): ActionResult {
+        val gesture = rule.gesture
+        if (gesture != null) {
+            return GestureActionExecutor(this, gesture).perform(node)
+        }
         return performer.perform(node, rule.position)
     }
 
