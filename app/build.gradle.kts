@@ -92,23 +92,27 @@ android {
         resValues = true
     }
 
-    val gkdSigningConfig = signingConfigs.create("gkd") {
-        storeFile = file(project.properties["GKD_STORE_FILE"] as String)
-        storePassword = project.properties["GKD_STORE_PASSWORD"].toString()
-        keyAlias = project.properties["GKD_KEY_ALIAS"].toString()
-        keyPassword = project.properties["GKD_KEY_PASSWORD"].toString()
-    }
+    //val gkdSigningConfig = signingConfigs.create("gkd") {
+      //  storeFile = file(project.properties["GKD_STORE_FILE"] as String)
+        //storePassword = project.properties["GKD_STORE_PASSWORD"].toString()
+        //keyAlias = project.properties["GKD_KEY_ALIAS"].toString()
+        //keyPassword = project.properties["GKD_KEY_PASSWORD"].toString()
+  //  }
 
-    val playSigningConfig = if (project.hasProperty("PLAY_STORE_FILE")) {
-        signingConfigs.create("play") {
-            storeFile = file(project.properties["PLAY_STORE_FILE"].toString())
-            storePassword = project.properties["PLAY_STORE_PASSWORD"].toString()
-            keyAlias = project.properties["PLAY_KEY_ALIAS"].toString()
-            keyPassword = project.properties["PLAY_KEY_PASSWORD"].toString()
-        }
-    } else {
-        gkdSigningConfig
-    }
+    //val playSigningConfig = if (project.hasProperty("PLAY_STORE_FILE")) {
+      //  signingConfigs.create("play") {
+        //    storeFile = file(project.properties["PLAY_STORE_FILE"].toString())
+          //  storePassword = project.properties["PLAY_STORE_PASSWORD"].toString()
+            //keyAlias = project.properties["PLAY_KEY_ALIAS"].toString()
+            //keyPassword = project.properties["PLAY_KEY_PASSWORD"].toString()
+        //}
+    //} else {
+      //  gkdSigningConfig
+    //}
+
+    // 使用测试版签名：
+    val gkdSigningConfig = signingConfigs.getByName("debug")
+    val playSigningConfig = signingConfigs.getByName("debug")
 
     buildTypes {
         all {
@@ -126,12 +130,18 @@ android {
             )
         }
         debug {
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = gkdSigningConfig
             applicationIdSuffix = ".debug"
             resValue("color", "better_black", "#FF5D92")
             debugSuffixPairList.onEach { (key, value) ->
                 resValue("string", key, "$value-debug")
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
     productFlavors {
@@ -206,6 +216,7 @@ loc {
 
 dependencies {
     implementation(libs.kotlin.stdlib)
+    implementation(libs.kotlin.reflect)
 
     implementation(project(":selector"))
 
@@ -218,6 +229,7 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.animation)
     implementation(libs.compose.animation.graphics)
+    implementation(libs.compose.foundation)
     implementation(libs.compose.icons)
     implementation(libs.compose.preview)
     debugImplementation(libs.compose.tooling)
@@ -248,14 +260,14 @@ dependencies {
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
 
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.cio)
-    implementation(libs.ktor.server.content.negotiation)
-
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
+
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.content.negotiation)
 
     implementation(libs.google.accompanist.drawablepainter)
 
