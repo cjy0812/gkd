@@ -326,6 +326,7 @@ data class RawSubscription(
         val key: Int?
         val preKeys: List<Int>?
         val action: String?
+        val gesture: GestureAction?
         val position: Position?
         val matches: List<String>?
         val anyMatches: List<String>?
@@ -333,7 +334,9 @@ data class RawSubscription(
         val excludeAllMatches: List<String>?
 
         fun getAllSelectorStrings(): List<String> {
-            return listOfNotNull(matches, excludeMatches, anyMatches, excludeAllMatches).flatten()
+            val selectors = listOfNotNull(matches, excludeMatches, anyMatches, excludeAllMatches).flatten()
+            val gestureSelectors = gesture?.selectorStrings() ?: emptyList()
+            return selectors + gestureSelectors
         }
     }
 
@@ -485,6 +488,7 @@ data class RawSubscription(
         override val exampleUrls: List<String>?,
         override val preKeys: List<Int>?,
         override val action: String?,
+        override val gesture: GestureAction?,
         override val position: Position?,
         override val matches: List<String>?,
         override val excludeMatches: List<String>?,
@@ -545,6 +549,7 @@ data class RawSubscription(
         override val name: String?,
         override val preKeys: List<Int>?,
         override val action: String?,
+        override val gesture: GestureAction?,
         override val position: Position?,
         override val matches: List<String>?,
         override val excludeMatches: List<String>?,
@@ -657,6 +662,15 @@ data class RawSubscription(
                 }
 
                 else -> null
+            }
+        }
+
+        private fun getGesture(jsonObject: JsonObject?): GestureAction? {
+            return when (val element = jsonObject?.get("gesture")) {
+                JsonNull, null -> null
+                else -> runCatching {
+                    json.decodeFromJsonElement<GestureAction>(element)
+                }.getOrNull()
             }
         }
 
@@ -813,6 +827,7 @@ data class RawSubscription(
                 actionDelay = getLong(jsonObject, "actionDelay") ?: getLong(jsonObject, "delay"),
                 preKeys = getIntIArray(jsonObject, "preKeys"),
                 action = getString(jsonObject, "action"),
+                gesture = getGesture(jsonObject),
                 fastQuery = getBoolean(jsonObject, "fastQuery"),
                 matchRoot = getBoolean(jsonObject, "matchRoot"),
                 actionMaximum = getInt(jsonObject, "actionMaximum"),
@@ -937,6 +952,7 @@ data class RawSubscription(
                     )
                 }?.distinctByIfAny { it.id },
                 action = getString(jsonObject, "action"),
+                gesture = getGesture(jsonObject),
                 preKeys = getIntIArray(jsonObject, "preKeys"),
                 excludeMatches = getStringIArray(jsonObject, "excludeMatches"),
                 excludeAllMatches = getStringIArray(jsonObject, "excludeAllMatches"),

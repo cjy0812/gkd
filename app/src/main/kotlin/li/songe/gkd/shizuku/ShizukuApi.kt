@@ -141,6 +141,24 @@ class ShizukuContext(
         return serviceWrapper?.tap(x, y, duration) ?: (inputManager?.tap(x, y, duration) != null)
     }
 
+    @WorkerThread
+    fun swipe(
+        x1: Float,
+        y1: Float,
+        x2: Float,
+        y2: Float,
+        duration: Long,
+        isDragDrop: Boolean = false,
+    ): Boolean {
+        if (isDragDrop) {
+            val manager = inputManager ?: return false
+            manager.swipe(x1, y1, x2, y2, duration, true)
+            return true
+        }
+        return serviceWrapper?.swipe(x1, y1, x2, y2, duration)
+            ?: (inputManager?.swipe(x1, y1, x2, y2, duration, false) != null)
+    }
+
     fun topCpn(): ComponentName? {
         return (activityTaskManager?.getTasks()
             ?: activityManager?.getTasks())?.firstOrNull()?.topActivity
