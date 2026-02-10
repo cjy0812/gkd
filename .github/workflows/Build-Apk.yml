@@ -3,14 +3,6 @@ name: Build-Apk
 on:
   workflow_dispatch:
 
-  push:
-    branches:
-      - '**'
-    paths-ignore:
-      - 'LICENSE'
-      - '*.md'
-      - '.github/**'
-
 jobs:
   build:
     if: ${{ !startsWith(github.event.head_commit.message, 'chore:') && !startsWith(github.event.head_commit.message, 'chore(') }}
