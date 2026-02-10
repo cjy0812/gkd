@@ -28,13 +28,13 @@ data class ActionResult(
 )
 
 sealed class ActionPerformer(val action: String) {
-    abstract fun perform(
+    abstract suspend fun perform(
         node: AccessibilityNodeInfo,
         position: RawSubscription.Position?,
     ): ActionResult
 
     data object ClickNode : ActionPerformer("clickNode") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -46,7 +46,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object ClickCenter : ActionPerformer("clickCenter") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -82,7 +82,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object Click : ActionPerformer("click") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -97,7 +97,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object LongClickNode : ActionPerformer("longClickNode") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -109,7 +109,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object LongClickCenter : ActionPerformer("longClickCenter") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -150,7 +150,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object LongClick : ActionPerformer("longClick") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -165,7 +165,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object Back : ActionPerformer("back") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
@@ -177,7 +177,7 @@ sealed class ActionPerformer(val action: String) {
     }
 
     data object None : ActionPerformer("none") {
-        override fun perform(
+        override suspend fun perform(
             node: AccessibilityNodeInfo,
             position: RawSubscription.Position?,
         ): ActionResult {
