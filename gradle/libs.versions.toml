@@ -2,7 +2,7 @@
 kotlin = "2.3.10"
 serialization = "1.10.0"
 ksp = "2.3.5"
-agp = "9.0.0"
+agp = "9.0.1"
 compose = "1.10.3"
 nav3 = "1.0.1"
 room = "2.8.4"
