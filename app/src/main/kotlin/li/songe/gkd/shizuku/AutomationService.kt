@@ -39,20 +39,22 @@ class AutomationService private constructor() : A11yCommonImpl {
         ruleEngine.onA11yEvent(it)
     }
 
-    override suspend fun screenshot(): Bitmap? = withContext(Dispatchers.IO) {
+    override suspend fun screenshot(): Bitmap = withContext(Dispatchers.IO) {
         try {
-            uiAutomation.takeScreenshot()
+            uiAutomation.takeScreenshot() ?: throw IllegalStateException("uiAutomation.takeScreenshot 返回 null")
         } catch (e: Throwable) {
             LogUtils.d("takeScreenshot failed, rollback to screencapFile", e)
             val tempDir = createGkdTempDir()
             val fp = tempDir.resolve("screenshot.png")
-            val ok = shizukuContextFlow.value.serviceWrapper?.screencapFile(fp.absolutePath)
-            if (ok == true && fp.exists()) {
-                BitmapFactory.decodeFile(fp.absolutePath).apply {
+            val serviceWrapper = shizukuContextFlow.value.serviceWrapper
+                ?: throw IllegalStateException("自动化服务未连接或 serviceWrapper 不可用", e)
+            val ok = serviceWrapper.screencapFile(fp.absolutePath)
+            if (ok && fp.exists()) {
+                BitmapFactory.decodeFile(fp.absolutePath)?.apply {
                     tempDir.deleteRecursively()
-                }
+                } ?: throw IllegalStateException("解析截图文件失败", e)
             } else {
-                null
+                throw IllegalStateException("screencapFile 执行失败或文件未生成", e)
             }
         }
     }

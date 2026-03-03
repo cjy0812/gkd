@@ -127,16 +127,13 @@ object SnapshotExt {
         skipScreenshot: Boolean = false,
         forcedCropStatusBar: Boolean = false,
     ): ComplexSnapshot {
-        if (A11yRuleEngine.instance == null) {
-            throw RpcError("服务不可用，请先授权")
-        }
+        val s = A11yRuleEngine.instance ?: throw RpcError("服务不可用，请先授权")
         if (captureLoading.value) {
             throw RpcError("正在保存快照，不可重复操作")
         }
         captureLoading.value = true
         try {
-            val rootNode =
-                A11yRuleEngine.instance?.safeActiveWindow
+            val rootNode = s.getValidActiveWindow()
                     ?: throw RpcError("当前应用没有无障碍信息，捕获失败")
             if (storeFlow.value.showSaveSnapshotToast) {
                 toast("正在保存快照...", forced = true)

@@ -2,6 +2,7 @@ package li.songe.gkd.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -14,6 +15,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import li.songe.gkd.META
@@ -33,16 +35,17 @@ import li.songe.gkd.shizuku.uiAutomationFlow
 import li.songe.gkd.store.actualBlockA11yAppList
 import li.songe.gkd.store.storeFlow
 import li.songe.gkd.util.AutomatorModeOption
+import li.songe.gkd.util.LogUtils
 import li.songe.gkd.util.launchTry
 import li.songe.gkd.util.runMainPost
 import li.songe.gkd.util.showActionToast
 import li.songe.gkd.util.systemUiAppId
+import li.songe.gkd.util.toast
 import li.songe.selector.MatchOption
 import li.songe.selector.Selector
 import java.util.concurrent.Executors
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 
 private val eventDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
@@ -84,16 +87,89 @@ class A11yRuleEngine(val service: A11yCommonImpl) {
         startQueryJob()
     }
 
+    private fun findBestWindowNode(appId: String?): AccessibilityNodeInfo? {
+        val windows = try {
+            service.windowInfos
+        } catch (_: Throwable) {
+            emptyList()
+        }
+        val tempRect = Rect()
+        for (window in windows) {
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+            val root = try {
+                window.root
+            } catch (_: Throwable) {
+                null
+            } ?: continue
+            val pkg = root.packageName?.toString()
+            if (appId != null && pkg != appId) {
+                continue
+            }
+            root.getBoundsInScreen(tempRect)
+            if (root.childCount > 0 && !tempRect.isEmpty) {
+                return root
+            }
+        }
+        return null
+    }
+
     val safeActiveWindow: AccessibilityNodeInfo?
         get() = try {
-            // 某些应用耗时 554ms
-            // java.lang.SecurityException: Call from user 0 as user -2 without permission INTERACT_ACROSS_USERS or INTERACT_ACROSS_USERS_FULL not allowed.
-            service.windowNodeInfo?.setGeneratedTime()
-        } catch (_: Throwable) {
+            val node = if (service.mode == AutomatorModeOption.AutomationMode) {
+                findBestWindowNode(topAppIdFlow.value) ?: service.windowNodeInfo
+            } else {
+                service.windowNodeInfo
+            }
+            if (node == null && service.mode == AutomatorModeOption.AutomationMode) {
+                LogUtils.d("自动化链路获取节点失败")
+                toast("自动化链路获取节点失败")
+            }
+            node?.refresh()
+            node?.setGeneratedTime()
+        } catch (e: Throwable) {
+            if (service.mode == AutomatorModeOption.AutomationMode) {
+                LogUtils.d("自动化模式下获取 windowNodeInfo 异常", e)
+                toast("自动化服务获取 UI 树异常")
+            }
             null
         }.apply {
             a11yContext.rootCache.value = this
         }
+
+    suspend fun getValidActiveWindow(): AccessibilityNodeInfo? {
+        if (service.mode != AutomatorModeOption.AutomationMode) {
+            return safeActiveWindow
+        }
+        val appId = topAppIdFlow.value
+        repeat(3) { i ->
+            val node = findBestWindowNode(appId)
+            if (node != null) {
+                node.refresh()
+                if (node.childCount > 0) {
+                    return node
+                }
+            }
+            if (i < 2) delay(100)
+        }
+        val node = try {
+            service.windowNodeInfo
+        } catch (_: Throwable) {
+            null
+        }
+        if (node != null) {
+            node.refresh()
+            if (node.childCount > 0) return node
+        }
+        val windows = try {
+            service.windowInfos
+        } catch (_: Throwable) {
+            emptyList()
+        }
+        val windowLogs = windows.joinToString { "id=${it.id}, type=${it.type}" }
+        LogUtils.d("无法从当前窗口层级提取有效 UI 树. windows: $windowLogs")
+        toast("无法从当前窗口层级提取有效 UI 树")
+        return node
+    }
 
     val safeActiveWindowAppId: String?
         get() = safeActiveWindow?.packageName?.toString()
@@ -200,7 +276,7 @@ class A11yRuleEngine(val service: A11yCommonImpl) {
     }
 
     // 某些场景耗时 5000 ms
-    private suspend fun getTimeoutActiveWindow(): AccessibilityNodeInfo? = suspendCoroutine { s ->
+    private suspend fun getTimeoutActiveWindow(): AccessibilityNodeInfo? = suspendCancellableCoroutine { s ->
         val temp = atomic<Continuation<AccessibilityNodeInfo?>?>(s)
         scope.launch(Dispatchers.IO) {
             delay(500L)
@@ -400,9 +476,12 @@ class A11yRuleEngine(val service: A11yCommonImpl) {
 
     companion object {
         val service: A11yCommonImpl?
-            get() = uiAutomationFlow.value?.takeIf {
-                it.mode.value == latestServiceMode.value
-            } ?: A11yService.instance
+            get() {
+                if (storeFlow.value.useAutomation) {
+                    return uiAutomationFlow.value
+                }
+                return A11yService.instance
+            }
         val instance: A11yRuleEngine? get() = service?.ruleEngine
 
         fun compatWindows(): List<AccessibilityWindowInfo> {

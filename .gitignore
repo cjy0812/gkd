@@ -25,3 +25,8 @@ local.properties
 
 /gradle/libs.versions.updates.toml
 gradle/libs.versions.toml
+.cobridge/AI_CONTEXT.md
+/.cobridge
+.cursorrules
+.github/copilot-instructions.md
+.traerules

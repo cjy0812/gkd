@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.google.android.accessibility.selecttospeak.SelectToSpeakService
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import li.songe.gkd.a11y.A11yCommonImpl
 import li.songe.gkd.a11y.A11yRuleEngine
 import li.songe.gkd.a11y.topActivityFlow
@@ -28,7 +29,6 @@ import li.songe.gkd.util.componentName
 import li.songe.gkd.util.runMainPost
 import li.songe.gkd.util.toast
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 @SuppressLint("AccessibilityPolicy")
 open class A11yService : AccessibilityService(), OnA11yLife, A11yCommonImpl {
@@ -36,21 +36,28 @@ open class A11yService : AccessibilityService(), OnA11yLife, A11yCommonImpl {
     override val scope = useScope()
     override val windowNodeInfo: AccessibilityNodeInfo? get() = rootInActiveWindow
     override val windowInfos: List<AccessibilityWindowInfo> get() = windows
-    override suspend fun screenshot(): Bitmap? = suspendCoroutine { continuation ->
+    override suspend fun screenshot(): Bitmap? = suspendCancellableCoroutine { continuation ->
         if (AndroidTarget.R) {
             takeScreenshot(
                 Display.DEFAULT_DISPLAY,
                 application.mainExecutor,
                 object : TakeScreenshotCallback {
-                    override fun onFailure(errorCode: Int) = continuation.resume(null)
-                    override fun onSuccess(screenshot: ScreenshotResult) = try {
-                        continuation.resume(
-                            Bitmap.wrapHardwareBuffer(
-                                screenshot.hardwareBuffer, screenshot.colorSpace
-                            )
-                        )
-                    } finally {
-                        screenshot.hardwareBuffer.close()
+                    override fun onFailure(errorCode: Int) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+
+                    override fun onSuccess(screenshot: ScreenshotResult) {
+                        try {
+                            if (continuation.isActive) {
+                                continuation.resume(
+                                    Bitmap.wrapHardwareBuffer(
+                                        screenshot.hardwareBuffer, screenshot.colorSpace
+                                    )
+                                )
+                            }
+                        } finally {
+                            screenshot.hardwareBuffer.close()
+                        }
                     }
                 }
             )
@@ -115,7 +122,7 @@ open class A11yService : AccessibilityService(), OnA11yLife, A11yCommonImpl {
         onCreated { StatusService.autoStart() }
         onDestroyed {
             shizukuContextFlow.value.topCpn()?.let { cpn ->
-                // com.android.systemui
+                // com.android.systemUI
                 if (!topActivityFlow.value.sameAs(cpn.packageName, cpn.className)) {
                     updateTopActivity(cpn.packageName, cpn.className)
                 }
