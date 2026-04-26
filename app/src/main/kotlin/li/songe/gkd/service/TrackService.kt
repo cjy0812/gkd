@@ -1,57 +1,68 @@
 package li.songe.gkd.service
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
+import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.Surface
+import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
+import android.view.animation.LinearInterpolator
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.util.lerp
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.setViewTreeLifecycleOwner
-import androidx.savedstate.SavedStateRegistryController
-import androidx.savedstate.SavedStateRegistryOwner
-import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.atomicfu.atomic
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import li.songe.gkd.app
 import li.songe.gkd.notif.StopServiceReceiver
 import li.songe.gkd.notif.trackNotif
 import li.songe.gkd.shizuku.casted
 import li.songe.gkd.util.AndroidTarget
+import li.songe.gkd.util.LogUtils
 import li.songe.gkd.util.OnSimpleLife
 import li.songe.gkd.util.ScreenUtils
-import li.songe.gkd.util.runMainPost
 import li.songe.gkd.util.startForegroundServiceByClass
 import li.songe.gkd.util.stopServiceByClass
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
-class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
+// Track indicator sizes are defined in dp first, then converted to px at runtime.
+// This keeps the overlay readable across devices with different screen densities.
+private const val TRACK_STROKE_WIDTH_DP = 2f
+private const val TRACK_LINE_MARGIN_DP = 40f
+private const val TRACK_PADDING_DP = 8f
+private const val TRACK_FILL_RADIUS_DP = 6f
+private const val TRACK_INNER_RING_RADIUS_DP = 12f
+private const val TRACK_OUTER_RING_RADIUS_DP = 18f
+private const val TRACK_REMOVE_DELAY = 7500L
+
+private fun dpToPx(dp: Float): Float = dp * ScreenUtils.getScreenDensityDpi() / 160f
+
+private val trackStrokeWidthPx get() = dpToPx(TRACK_STROKE_WIDTH_DP)
+private val trackLineMarginPx get() = dpToPx(TRACK_LINE_MARGIN_DP)
+private val trackPaddingPx get() = dpToPx(TRACK_PADDING_DP)
+private val trackFillRadiusPx get() = dpToPx(TRACK_FILL_RADIUS_DP)
+private val trackInnerRingRadiusPx get() = dpToPx(TRACK_INNER_RING_RADIUS_DP)
+private val trackOuterRingRadiusPx get() = dpToPx(TRACK_OUTER_RING_RADIUS_DP)
+
+// One point overlay must contain the full crosshair span plus a small clip buffer.
+private val trackPointSizePx get() = ((trackLineMarginPx + trackPaddingPx) * 2).roundToInt()
+
+class TrackService : LifecycleService(), OnSimpleLife {
     override fun onCreate() {
         super.onCreate()
         onCreated()
@@ -62,210 +73,30 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         onDestroyed()
     }
 
-    val registryController = SavedStateRegistryController.create(this).apply {
-        performAttach()
-        performRestore(null)
-    }
-    override val savedStateRegistry = registryController.savedStateRegistry
-    override val scope get() = lifecycleScope
+    override val scope: CoroutineScope
+        get() = lifecycleScope
 
+    // Service-scoped overlay host state.
     private val windowManager by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
-    private val resizeFlow = MutableSharedFlow<Unit>()
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        lifecycleScope.launch { resizeFlow.emit(Unit) }
-    }
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val overlayEntries = linkedMapOf<Int, OverlayEntry>()
 
-    val curRotationFlow = MutableStateFlow(app.compatDisplay.rotation).apply {
-        lifecycleScope.launch {
-            resizeFlow.collect { update { app.compatDisplay.rotation } }
-        }
+    private var currentRotation = app.compatDisplay.rotation
+    private var currentScreenSize = getScreenSize()
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        currentRotation = app.compatDisplay.rotation
+        currentScreenSize = getScreenSize()
+        overlayEntries.values.toList().forEach { it.updateLayout() }
     }
-    val screenSizeFlow = MutableStateFlow(getScreenSize())
-    val strokeWidth = 2f
-    val lineMargin = 75f
-    val trackPadding = lineMargin + 8f
-    private var isViewAttached = false
-    private val overlayOriginFlow = MutableStateFlow(Offset.Zero)
 
     private fun getScreenSize() = Size(
         ScreenUtils.getScreenWidth().toFloat(),
         ScreenUtils.getScreenHeight().toFloat(),
     )
 
-    private data class OverlayRegion(
-        val left: Int,
-        val top: Int,
-        val width: Int,
-        val height: Int,
-    )
-
-    private fun attachViewIfNeeded() {
-        if (isViewAttached) return
-        windowManager.addView(view, layoutParams)
-        isViewAttached = true
-    }
-
-    private fun detachViewIfNeeded() {
-        if (!isViewAttached) return
-        windowManager.removeView(view)
-        isViewAttached = false
-    }
-
-    private fun applyOverlayRegion(region: OverlayRegion) {
-        layoutParams.x = region.left
-        layoutParams.y = region.top
-        layoutParams.width = region.width
-        layoutParams.height = region.height
-        overlayOriginFlow.value = Offset(region.left.toFloat(), region.top.toFloat())
-        if (isViewAttached) {
-            windowManager.updateViewLayout(view, layoutParams)
-        } else {
-            attachViewIfNeeded()
-        }
-    }
-
-    private fun buildOverlayRegion(
-        points: List<TrackPoint>,
-        swipePoints: List<SwipeTrackPoint>,
-        screenSize: Size,
-        curRotation: Int,
-    ): OverlayRegion? {
-        if (points.isEmpty() && swipePoints.isEmpty()) return null
-
-        var minX = Float.POSITIVE_INFINITY
-        var minY = Float.POSITIVE_INFINITY
-        var maxX = Float.NEGATIVE_INFINITY
-        var maxY = Float.NEGATIVE_INFINITY
-
-        fun expand(center: Offset) {
-            minX = minOf(minX, center.x - trackPadding)
-            minY = minOf(minY, center.y - trackPadding)
-            maxX = maxOf(maxX, center.x + trackPadding)
-            maxY = maxOf(maxY, center.y + trackPadding)
-        }
-
-        points.forEach { point ->
-            expand(point.getScreenCenter(screenSize, curRotation))
-        }
-        swipePoints.forEach { swipePoint ->
-            expand(swipePoint.start.getScreenCenter(screenSize, curRotation))
-            expand(swipePoint.end.getScreenCenter(screenSize, curRotation))
-        }
-
-        val screenWidth = screenSize.width.toInt()
-        val screenHeight = screenSize.height.toInt()
-        val left = minX.toInt().coerceIn(0, screenWidth)
-        val top = minY.toInt().coerceIn(0, screenHeight)
-        val right = kotlin.math.ceil(maxX.toDouble()).toInt().coerceIn(left + 1, screenWidth)
-        val bottom = kotlin.math.ceil(maxY.toDouble()).toInt().coerceIn(top + 1, screenHeight)
-
-        return OverlayRegion(
-            left = left,
-            top = top,
-            width = right - left,
-            height = bottom - top,
-        )
-    }
-
-    private fun DrawScope.drawTrackPoint(center: Offset) {
-
-        drawLine(
-            color = Color.Yellow,
-            start = Offset(center.x, center.y - lineMargin),
-            end = Offset(center.x, center.y + lineMargin),
-            strokeWidth = strokeWidth,
-        )
-        drawLine(
-            color = Color.Yellow,
-            start = Offset(center.x - lineMargin, center.y),
-            end = Offset(center.x + lineMargin, center.y),
-            strokeWidth = strokeWidth,
-        )
-        drawCircle(
-            color = Color.Red,
-            radius = 10f,
-            center = center,
-        )
-        drawCircle(
-            color = Color.Red,
-            radius = 20f,
-            center = center,
-            style = Stroke(4f)
-        )
-        drawCircle(
-            color = Color.Red,
-            radius = 30f,
-            center = center,
-            style = Stroke(4f)
-        )
-    }
-
-    @Composable
-    private fun SwipePointCanvas(
-        swipePoint: SwipeTrackPoint,
-        curRotation: Int,
-        screenSize: Size,
-        overlayOrigin: Offset,
-    ) {
-        val progress = remember { Animatable(0f) }
-        LaunchedEffect(null) {
-            // 匀速直线
-            progress.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(swipePoint.duration.toInt(), easing = LinearEasing),
-            )
-            delayRemovePosition(swipePoint.id)
-        }
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val startCenter = swipePoint.start.getCenter(screenSize, curRotation, overlayOrigin)
-            drawTrackPoint(startCenter)
-            val endCenter = swipePoint.end.getCenter(screenSize, curRotation, overlayOrigin)
-            val midCenter = Offset(
-                lerp(startCenter.x, endCenter.x, progress.value),
-                lerp(startCenter.y, endCenter.y, progress.value)
-            )
-            drawTrackPoint(midCenter)
-            drawLine(
-                color = Color.Blue,
-                start = startCenter,
-                end = midCenter,
-                strokeWidth = strokeWidth,
-            )
-        }
-    }
-
-    @Composable
-    fun ComposeContent() {
-        val curRotation by curRotationFlow.collectAsState()
-        val screenSize by screenSizeFlow.collectAsState()
-        val overlayOrigin by overlayOriginFlow.collectAsState()
-        val positionList = pointListFlow.collectAsState().value
-        Canvas(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            positionList.forEach { point ->
-                drawTrackPoint(point.getCenter(screenSize, curRotation, overlayOrigin))
-            }
-        }
-        val swipePointList = swipePointListFlow.collectAsState().value
-        swipePointList.forEach { swipePoint ->
-            key(swipePoint.id) { SwipePointCanvas(swipePoint, curRotation, screenSize, overlayOrigin) }
-        }
-    }
-
-    val view by lazy {
-        ComposeView(this).apply {
-            setViewTreeSavedStateRegistryOwner(this@TrackService)
-            setViewTreeLifecycleOwner(this@TrackService)
-            setContent {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    ComposeContent()
-                }
-            }
-        }
-    }
-
-    val layoutParams = WindowManager.LayoutParams(
+    // All track overlays share the same window flags; only size/position differ.
+    private fun createLayoutParams() = WindowManager.LayoutParams(
         1,
         1,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -278,67 +109,203 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     ).apply {
         gravity = Gravity.START or Gravity.TOP
         if (AndroidTarget.S) {
-            // fix #1325
             alpha = app.inputManager.maximumObscuringOpacityForTouch
         }
     }
 
+    // Overlay lifecycle coordination.
+    private fun addPointOverlay(point: TrackPoint) {
+        val entry = PointOverlayEntry(point)
+        overlayEntries[entry.id] = entry
+        entry.attach()
+    }
+
+    private fun addSwipeOverlay(swipePoint: SwipeTrackPoint) {
+        val entry = SwipeOverlayEntry(swipePoint)
+        overlayEntries[entry.id] = entry
+        entry.attach()
+    }
+
+    private fun removeOverlay(id: Int) {
+        overlayEntries.remove(id)?.remove()
+    }
+
+    private fun clearOverlays() {
+        overlayEntries.values.toList().forEach { it.remove() }
+        overlayEntries.clear()
+        autoIncreaseId.value = 0
+    }
+
+    // Service lifecycle wiring.
     init {
         useLogLifecycle()
         useAliveFlow(isRunning)
         useAliveToast("轨迹提示")
         StopServiceReceiver.autoRegister()
-        onCreated { trackNotif.notifyService() }
         onCreated {
-            scope.launch {
-                combine(
-                    pointListFlow,
-                    swipePointListFlow,
-                    curRotationFlow,
-                    screenSizeFlow,
-                ) { pointList, swipePointList, curRotation, screenSize ->
-                    buildOverlayRegion(pointList, swipePointList, screenSize, curRotation)
-                }.distinctUntilChanged().collect { region ->
-                    if (region != null) {
-                        applyOverlayRegion(region)
-                    } else {
-                        detachViewIfNeeded()
-                    }
-                }
+            instance = this
+            currentRotation = app.compatDisplay.rotation
+            currentScreenSize = getScreenSize()
+        }
+        onCreated { trackNotif.notifyService() }
+        onDestroyed {
+            if (instance === this) {
+                instance = null
             }
         }
-        onDestroyed { detachViewIfNeeded() }
-        onDestroyed { clearPosition() }
-        onCreated {
-            scope.launch {
-                resizeFlow.collect {
-                    screenSizeFlow.value = getScreenSize()
+        onDestroyed { clearOverlays() }
+    }
+
+    // One visible track entity maps to one overlay entry.
+    private interface OverlayEntry {
+        val id: Int
+        fun attach()
+        fun remove()
+        fun updateLayout()
+        fun scheduleRemoval(delayMillis: Long)
+    }
+
+    private abstract inner class BaseOverlayEntry(
+        final override val id: Int,
+    ) : OverlayEntry {
+        protected abstract val view: View
+
+        private var layoutParams: WindowManager.LayoutParams? = null
+        private var attached = false
+        private val removeRunnable = Runnable { removeOverlay(id) }
+
+        override fun attach() {
+            if (attached) return
+            val params = createLayoutParams().also(::updateLayoutParams)
+            try {
+                windowManager.addView(view, params)
+                layoutParams = params
+                attached = true
+                onAttached()
+            } catch (e: Throwable) {
+                overlayEntries.remove(id)
+                LogUtils.d(e)
+            }
+        }
+
+        override fun remove() {
+            mainHandler.removeCallbacks(removeRunnable)
+            onBeforeRemove()
+            if (attached) {
+                try {
+                    windowManager.removeView(view)
+                } catch (e: Throwable) {
+                    LogUtils.d(e)
                 }
             }
+            attached = false
+            layoutParams = null
+        }
+
+        override fun updateLayout() {
+            val params = layoutParams ?: return
+            if (!attached) return
+            updateLayoutParams(params)
+            try {
+                windowManager.updateViewLayout(view, params)
+            } catch (e: Throwable) {
+                LogUtils.d(e)
+            }
+        }
+
+        override fun scheduleRemoval(delayMillis: Long) {
+            mainHandler.removeCallbacks(removeRunnable)
+            mainHandler.postDelayed(removeRunnable, delayMillis)
+        }
+
+        protected open fun onAttached() {}
+
+        protected open fun onBeforeRemove() {}
+
+        protected abstract fun updateLayoutParams(params: WindowManager.LayoutParams)
+    }
+
+    // Fixed-size overlay centered on a single click/long-click point.
+    private inner class PointOverlayEntry(
+        private val point: TrackPoint,
+    ) : BaseOverlayEntry(point.id) {
+        override val view = PointOverlayView(this@TrackService)
+
+        override fun onAttached() {
+            scheduleRemoval(TRACK_REMOVE_DELAY)
+        }
+
+        override fun updateLayoutParams(params: WindowManager.LayoutParams) {
+            val center = point.getScreenCenter(currentScreenSize, currentRotation)
+            val halfSize = trackPointSizePx / 2f
+            params.width = trackPointSizePx
+            params.height = trackPointSizePx
+            params.x = (center.x - halfSize).roundToInt()
+            params.y = (center.y - halfSize).roundToInt()
+        }
+    }
+
+    // One swipe owns one stable local window; only the animation progress changes.
+    private inner class SwipeOverlayEntry(
+        private val swipePoint: SwipeTrackPoint,
+    ) : BaseOverlayEntry(swipePoint.id) {
+        override val view = SwipeOverlayView(this@TrackService, swipePoint.duration)
+        private var layout = buildSwipeOverlayLayout()
+
+        override fun onAttached() {
+            view.updateGeometry(layout.localStart, layout.localEnd)
+            view.onAnimationFinished = { scheduleRemoval(TRACK_REMOVE_DELAY) }
+            view.startAnimation()
+        }
+
+        override fun onBeforeRemove() {
+            view.stopAnimation()
+        }
+
+        override fun updateLayoutParams(params: WindowManager.LayoutParams) {
+            layout = buildSwipeOverlayLayout()
+            params.width = layout.width
+            params.height = layout.height
+            params.x = layout.left
+            params.y = layout.top
+            view.updateGeometry(layout.localStart, layout.localEnd)
+        }
+
+        private fun buildSwipeOverlayLayout(): SwipeOverlayLayout {
+            // The swipe overlay bounds are computed once from the absolute start/end
+            // points, then converted into local coordinates for drawing.
+            val start = swipePoint.start.getScreenCenter(currentScreenSize, currentRotation)
+            val end = swipePoint.end.getScreenCenter(currentScreenSize, currentRotation)
+            val minX = min(start.x, end.x) - trackPaddingPx
+            val minY = min(start.y, end.y) - trackPaddingPx
+            val maxX = max(start.x, end.x) + trackPaddingPx
+            val maxY = max(start.y, end.y) + trackPaddingPx
+            val left = minX.roundToInt()
+            val top = minY.roundToInt()
+            val width = max(1, ceil(maxX - minX).toInt())
+            val height = max(1, ceil(maxY - minY).toInt())
+            val origin = Offset(left.toFloat(), top.toFloat())
+            return SwipeOverlayLayout(
+                left = left,
+                top = top,
+                width = width,
+                height = height,
+                localStart = start - origin,
+                localEnd = end - origin,
+            )
         }
     }
 
     companion object {
-        private val pointListFlow = MutableStateFlow<List<TrackPoint>>(emptyList())
-        private val swipePointListFlow = MutableStateFlow<List<SwipeTrackPoint>>(emptyList())
-        private fun clearPosition() {
-            pointListFlow.value = emptyList()
-            swipePointListFlow.value = emptyList()
-            autoIncreaseId.value = 0
-        }
-
-        private fun delayRemovePosition(id: Int) {
-            runMainPost(7500) {
-                pointListFlow.update { it.filter { v -> v.id != id } }
-                swipePointListFlow.update { it.filter { v -> v.id != id } }
-            }
-        }
-
+        @Volatile
+        private var instance: TrackService? = null
         val isRunning: StateFlow<Boolean>
             field = MutableStateFlow(false)
 
         fun start() = startForegroundServiceByClass(TrackService::class)
+
         fun stop() = stopServiceByClass(TrackService::class)
+
         fun addA11yNodePosition(node: AccessibilityNodeInfo) {
             if (!isRunning.value) return
             addXyPosition(
@@ -347,28 +314,151 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
             )
         }
 
+        // Public entry for point-style tracks. Rendering is posted onto the
+        // service's main thread so WindowManager operations stay serialized.
         fun addXyPosition(x: Float, y: Float) {
             if (!isRunning.value) return
-            val p = TrackPoint(x, y)
-            pointListFlow.update { it + p }
-            delayRemovePosition(p.id)
+            val point = TrackPoint(x, y)
+            val service = instance ?: return
+            service.mainHandler.post {
+                if (instance === service && isRunning.value) {
+                    service.addPointOverlay(point)
+                }
+            }
         }
 
+        // Public entry for swipe-style tracks. One swipe corresponds to one
+        // independent overlay and one independent lifetime.
         fun addSwipePosition(
             startX: Float,
             startY: Float,
             endX: Float,
             endY: Float,
-            duration: Long
+            duration: Long,
         ) {
             if (!isRunning.value) return
-            val p = SwipeTrackPoint(
+            val swipePoint = SwipeTrackPoint(
                 start = TrackPoint(startX, startY),
                 end = TrackPoint(endX, endY),
                 duration = duration,
             )
-            swipePointListFlow.update { it + p }
+            val service = instance ?: return
+            service.mainHandler.post {
+                if (instance === service && isRunning.value) {
+                    service.addSwipeOverlay(swipePoint)
+                }
+            }
         }
+    }
+}
+
+private data class SwipeOverlayLayout(
+    val left: Int,
+    val top: Int,
+    val width: Int,
+    val height: Int,
+    val localStart: Offset,
+    val localEnd: Offset,
+)
+
+private class PointOverlayView(
+    context: Context,
+) : BaseTrackOverlayView(context) {
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        drawTrackPoint(canvas, width / 2f, height / 2f)
+    }
+}
+
+private class SwipeOverlayView(
+    context: Context,
+    private val duration: Long,
+) : BaseTrackOverlayView(context) {
+    private var start = Offset.Zero
+    private var end = Offset.Zero
+    private var progress = 0f
+    private var animator: ValueAnimator? = null
+    var onAnimationFinished: (() -> Unit)? = null
+
+    fun updateGeometry(start: Offset, end: Offset) {
+        this.start = start
+        this.end = end
+        invalidate()
+    }
+
+    fun startAnimation() {
+        stopAnimation()
+        progress = 0f
+        animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = this@SwipeOverlayView.duration
+            interpolator = LinearInterpolator()
+            addUpdateListener {
+                progress = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                private var canceled = false
+
+                override fun onAnimationCancel(animation: Animator) {
+                    canceled = true
+                }
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!canceled) {
+                        onAnimationFinished?.invoke()
+                    }
+                }
+            })
+            start()
+        }
+    }
+
+    fun stopAnimation() {
+        animator?.cancel()
+        animator = null
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        drawTrackPoint(canvas, start.x, start.y)
+        val midX = start.x + (end.x - start.x) * progress
+        val midY = start.y + (end.y - start.y) * progress
+        drawTrackPoint(canvas, midX, midY)
+        canvas.drawLine(start.x, start.y, midX, midY, trailLinePaint)
+    }
+}
+
+private abstract class BaseTrackOverlayView(
+    context: Context,
+) : View(context) {
+    // Yellow/red marker paints for the point indicator itself.
+    private val markerLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.YELLOW
+        strokeWidth = trackStrokeWidthPx
+        style = Paint.Style.STROKE
+    }
+    private val fillCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.RED
+        style = Paint.Style.FILL
+    }
+    private val strokeCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.RED
+        strokeWidth = trackStrokeWidthPx * 2
+        style = Paint.Style.STROKE
+    }
+    protected val trailLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLUE
+        strokeWidth = trackStrokeWidthPx
+        style = Paint.Style.STROKE
+    }
+
+    // Shared point indicator drawing used by both point and swipe overlays.
+    protected fun drawTrackPoint(canvas: Canvas, x: Float, y: Float) {
+        canvas.drawLine(x, y - trackLineMarginPx, x, y + trackLineMarginPx, markerLinePaint)
+        canvas.drawLine(x - trackLineMarginPx, y, x + trackLineMarginPx, y, markerLinePaint)
+        canvas.drawCircle(x, y, trackFillRadiusPx, fillCirclePaint)
+        canvas.drawCircle(x, y, trackInnerRingRadiusPx, strokeCirclePaint)
+        canvas.drawCircle(x, y, trackOuterRingRadiusPx, strokeCirclePaint)
     }
 }
 
@@ -379,24 +469,22 @@ private data class TrackPoint(
     val y: Float,
 ) {
     val id = autoIncreaseId.incrementAndGet()
-    val screenWidth = ScreenUtils.getScreenWidth().toFloat()
-    val screenHeight = ScreenUtils.getScreenHeight().toFloat()
-    val rotation = app.compatDisplay.rotation
+    private val screenWidth = ScreenUtils.getScreenWidth().toFloat()
+    private val screenHeight = ScreenUtils.getScreenHeight().toFloat()
+    private val rotation = app.compatDisplay.rotation
 
+    // Convert the captured screen point into the current screen orientation so
+    // overlays still align after rotation changes.
     fun getScreenCenter(size: Size, curRotation: Int): Offset {
-        val curWidth = size.width
-        val curHeight = size.height
         val (physX, physY) = screenToPhysical(x, y, screenWidth, screenHeight, rotation)
-        return physicalToScreen(physX, physY, curWidth, curHeight, curRotation)
-    }
-
-    fun getCenter(size: Size, curRotation: Int, overlayOrigin: Offset): Offset {
-        return getScreenCenter(size, curRotation) - overlayOrigin
+        return physicalToScreen(physX, physY, size.width, size.height, curRotation)
     }
 
     private fun screenToPhysical(
-        sx: Float, sy: Float,
-        sw: Float, sh: Float,
+        sx: Float,
+        sy: Float,
+        sw: Float,
+        sh: Float,
         rot: Int,
     ): Offset = when (rot) {
         Surface.ROTATION_0 -> Offset(sx, sy)
@@ -407,8 +495,10 @@ private data class TrackPoint(
     }
 
     private fun physicalToScreen(
-        px: Float, py: Float,
-        sw: Float, sh: Float,
+        px: Float,
+        py: Float,
+        sw: Float,
+        sh: Float,
         rot: Int,
     ): Offset = when (rot) {
         Surface.ROTATION_0 -> Offset(px, py)
