@@ -50,6 +50,8 @@ import li.songe.gkd.util.startForegroundServiceByClass
 import li.songe.gkd.util.stopServiceByClass
 
 class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
+    private val overlayEnabledForTest = false
+
     override fun onCreate() {
         super.onCreate()
         onCreated()
@@ -196,15 +198,25 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         useAliveToast("轨迹提示")
         StopServiceReceiver.autoRegister()
         onCreated { trackNotif.notifyService() }
-        onCreated { windowManager.addView(view, layoutParams) }
-        onDestroyed { windowManager.removeView(view) }
+        onCreated {
+            if (overlayEnabledForTest) {
+                windowManager.addView(view, layoutParams)
+            }
+        }
+        onDestroyed {
+            if (overlayEnabledForTest) {
+                windowManager.removeView(view)
+            }
+        }
         onDestroyed { clearPosition() }
         onCreated {
             scope.launch {
                 resizeFlow.collect {
                     layoutParams.width = ScreenUtils.getScreenWidth()
                     layoutParams.height = ScreenUtils.getScreenHeight()
-                    windowManager.updateViewLayout(view, layoutParams)
+                    if (overlayEnabledForTest) {
+                        windowManager.updateViewLayout(view, layoutParams)
+                    }
                 }
             }
         }
