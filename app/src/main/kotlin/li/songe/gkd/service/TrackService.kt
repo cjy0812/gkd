@@ -156,8 +156,6 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         StopServiceReceiver.autoRegister()
         onCreated {
             instance = this
-            currentScreenSize = getScreenSize()
-            currentTrackMetrics = getTrackMetrics()
         }
         onCreated { trackNotif.notifyService() }
         onCreated {
@@ -296,12 +294,22 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         fun attach() {
             if (attached) return
             val params = createLayoutParams().also(::updateLayoutParams)
+            var added = false
             try {
                 windowManager.addView(view, params)
+                added = true
                 layoutParams = params
                 attached = true
                 onAttached()
             } catch (e: Throwable) {
+                if (added) {
+                    try {
+                        windowManager.removeView(view)
+                    } catch (_: Throwable) {
+                    }
+                }
+                attached = false
+                layoutParams = null
                 overlayEntries.remove(id)
                 LogUtils.d(e)
             }
