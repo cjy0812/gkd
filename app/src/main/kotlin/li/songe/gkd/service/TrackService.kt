@@ -36,6 +36,8 @@ import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import li.songe.gkd.app
@@ -50,8 +52,6 @@ import li.songe.gkd.util.startForegroundServiceByClass
 import li.songe.gkd.util.stopServiceByClass
 
 class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
-    private val overlayEnabledForTest = false
-
     override fun onCreate() {
         super.onCreate()
         onCreated()
@@ -82,6 +82,19 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     }
     val strokeWidth = 2f
     val lineMargin = 75f
+    private var isViewAttached = false
+
+    private fun attachViewIfNeeded() {
+        if (isViewAttached) return
+        windowManager.addView(view, layoutParams)
+        isViewAttached = true
+    }
+
+    private fun detachViewIfNeeded() {
+        if (!isViewAttached) return
+        windowManager.removeView(view)
+        isViewAttached = false
+    }
 
     private fun DrawScope.drawTrackPoint(center: Offset) {
 
@@ -199,22 +212,24 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         StopServiceReceiver.autoRegister()
         onCreated { trackNotif.notifyService() }
         onCreated {
-            if (overlayEnabledForTest) {
-                windowManager.addView(view, layoutParams)
+            scope.launch {
+                hasVisibleTrackFlow.collect { hasVisibleTrack ->
+                    if (hasVisibleTrack) {
+                        attachViewIfNeeded()
+                    } else {
+                        detachViewIfNeeded()
+                    }
+                }
             }
         }
-        onDestroyed {
-            if (overlayEnabledForTest) {
-                windowManager.removeView(view)
-            }
-        }
+        onDestroyed { detachViewIfNeeded() }
         onDestroyed { clearPosition() }
         onCreated {
             scope.launch {
                 resizeFlow.collect {
                     layoutParams.width = ScreenUtils.getScreenWidth()
                     layoutParams.height = ScreenUtils.getScreenHeight()
-                    if (overlayEnabledForTest) {
+                    if (isViewAttached) {
                         windowManager.updateViewLayout(view, layoutParams)
                     }
                 }
@@ -225,6 +240,10 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     companion object {
         private val pointListFlow = MutableStateFlow<List<TrackPoint>>(emptyList())
         private val swipePointListFlow = MutableStateFlow<List<SwipeTrackPoint>>(emptyList())
+        private val hasVisibleTrackFlow = combine(pointListFlow, swipePointListFlow) { pointList, swipePointList ->
+            pointList.isNotEmpty() || swipePointList.isNotEmpty()
+        }.distinctUntilChanged()
+
         private fun clearPosition() {
             pointListFlow.value = emptyList()
             swipePointListFlow.value = emptyList()
