@@ -40,8 +40,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-// Track indicator sizes are defined in dp first, then converted to px at runtime.
-// This keeps the overlay readable across devices with different screen densities.
+// 轨迹指示器先以 dp 定义，再在运行时换算成 px，
+// 这样在不同屏幕密度设备上能保持更接近的视觉体感。
 private const val TRACK_STROKE_WIDTH_DP = 2f
 private const val TRACK_LINE_MARGIN_DP = 40f
 private const val TRACK_PADDING_DP = 8f
@@ -59,7 +59,7 @@ private val trackFillRadiusPx get() = dpToPx(TRACK_FILL_RADIUS_DP)
 private val trackInnerRingRadiusPx get() = dpToPx(TRACK_INNER_RING_RADIUS_DP)
 private val trackOuterRingRadiusPx get() = dpToPx(TRACK_OUTER_RING_RADIUS_DP)
 
-// One point overlay must contain the full crosshair span plus a small clip buffer.
+// 单个点位 overlay 需要完整包住十字线范围，并额外留一点边缘缓冲避免裁切。
 private val trackPointSizePx get() = ((trackLineMarginPx + trackPaddingPx) * 2).roundToInt()
 
 class TrackService : LifecycleService(), OnSimpleLife {
@@ -76,7 +76,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
     override val scope: CoroutineScope
         get() = lifecycleScope
 
-    // Service-scoped overlay host state.
+    // Service 级别的 overlay 宿主状态。
     private val windowManager by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val overlayEntries = linkedMapOf<Int, OverlayEntry>()
@@ -95,7 +95,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
         ScreenUtils.getScreenHeight().toFloat(),
     )
 
-    // All track overlays share the same window flags; only size/position differ.
+    // 所有轨迹 overlay 共用同一套窗口 flag，只有位置和尺寸会变化。
     private fun createLayoutParams() = WindowManager.LayoutParams(
         1,
         1,
@@ -113,7 +113,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
         }
     }
 
-    // Overlay lifecycle coordination.
+    // overlay 的创建、登记与销毁协调。
     private fun addPointOverlay(point: TrackPoint) {
         val entry = PointOverlayEntry(point)
         overlayEntries[entry.id] = entry
@@ -136,7 +136,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
         autoIncreaseId.value = 0
     }
 
-    // Service lifecycle wiring.
+    // Service 生命周期接线。
     init {
         useLogLifecycle()
         useAliveFlow(isRunning)
@@ -156,7 +156,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
         onDestroyed { clearOverlays() }
     }
 
-    // One visible track entity maps to one overlay entry.
+    // 一个可见轨迹实体对应一个独立 overlay。
     private interface OverlayEntry {
         val id: Int
         fun attach()
@@ -225,7 +225,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
         protected abstract fun updateLayoutParams(params: WindowManager.LayoutParams)
     }
 
-    // Fixed-size overlay centered on a single click/long-click point.
+    // 单个点击/长按点位使用固定尺寸 overlay，并以点中心为锚点。
     private inner class PointOverlayEntry(
         private val point: TrackPoint,
     ) : BaseOverlayEntry(point.id) {
@@ -245,7 +245,7 @@ class TrackService : LifecycleService(), OnSimpleLife {
         }
     }
 
-    // One swipe owns one stable local window; only the animation progress changes.
+    // 一条滑动拥有一个稳定的局部窗口，动画期间只更新进度，不移动窗口本身。
     private inner class SwipeOverlayEntry(
         private val swipePoint: SwipeTrackPoint,
     ) : BaseOverlayEntry(swipePoint.id) {
@@ -272,8 +272,8 @@ class TrackService : LifecycleService(), OnSimpleLife {
         }
 
         private fun buildSwipeOverlayLayout(): SwipeOverlayLayout {
-            // The swipe overlay bounds are computed once from the absolute start/end
-            // points, then converted into local coordinates for drawing.
+            // 先根据屏幕绝对起点/终点计算 swipe overlay 的包围框，
+            // 再换算成局部坐标用于窗口内部绘制。
             val start = swipePoint.start.getScreenCenter(currentScreenSize, currentRotation)
             val end = swipePoint.end.getScreenCenter(currentScreenSize, currentRotation)
             val minX = min(start.x, end.x) - trackPaddingPx
@@ -314,8 +314,8 @@ class TrackService : LifecycleService(), OnSimpleLife {
             )
         }
 
-        // Public entry for point-style tracks. Rendering is posted onto the
-        // service's main thread so WindowManager operations stay serialized.
+        // 点位类轨迹的公共入口。
+        // 绘制任务统一投递到 service 主线程，保证 WindowManager 调用串行执行。
         fun addXyPosition(x: Float, y: Float) {
             if (!isRunning.value) return
             val point = TrackPoint(x, y)
@@ -327,8 +327,8 @@ class TrackService : LifecycleService(), OnSimpleLife {
             }
         }
 
-        // Public entry for swipe-style tracks. One swipe corresponds to one
-        // independent overlay and one independent lifetime.
+        // 滑动类轨迹的公共入口。
+        // 一条 swipe 对应一个独立 overlay，也对应一套独立生命周期。
         fun addSwipePosition(
             startX: Float,
             startY: Float,
@@ -431,7 +431,7 @@ private class SwipeOverlayView(
 private abstract class BaseTrackOverlayView(
     context: Context,
 ) : View(context) {
-    // Yellow/red marker paints for the point indicator itself.
+    // 点位指示器自身使用的黄线/红圈画笔。
     private val markerLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.YELLOW
         strokeWidth = trackStrokeWidthPx
@@ -452,7 +452,7 @@ private abstract class BaseTrackOverlayView(
         style = Paint.Style.STROKE
     }
 
-    // Shared point indicator drawing used by both point and swipe overlays.
+    // 点位指示器的公共绘制逻辑，普通点和 swipe 都复用这套样式。
     protected fun drawTrackPoint(canvas: Canvas, x: Float, y: Float) {
         canvas.drawLine(x, y - trackLineMarginPx, x, y + trackLineMarginPx, markerLinePaint)
         canvas.drawLine(x - trackLineMarginPx, y, x + trackLineMarginPx, y, markerLinePaint)
@@ -473,8 +473,8 @@ private data class TrackPoint(
     private val screenHeight = ScreenUtils.getScreenHeight().toFloat()
     private val rotation = app.compatDisplay.rotation
 
-    // Convert the captured screen point into the current screen orientation so
-    // overlays still align after rotation changes.
+    // 把采集时的屏幕坐标换算到当前屏幕方向下，
+    // 这样设备旋转后 overlay 仍能和真实位置对齐。
     fun getScreenCenter(size: Size, curRotation: Int): Offset {
         val (physX, physY) = screenToPhysical(x, y, screenWidth, screenHeight, rotation)
         return physicalToScreen(physX, physY, size.width, size.height, curRotation)
