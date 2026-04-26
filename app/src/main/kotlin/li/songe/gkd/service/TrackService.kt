@@ -80,9 +80,24 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
             resizeFlow.collect { update { app.compatDisplay.rotation } }
         }
     }
+    val screenSizeFlow = MutableStateFlow(getScreenSize())
     val strokeWidth = 2f
     val lineMargin = 75f
+    val trackPadding = lineMargin + 8f
     private var isViewAttached = false
+    private val overlayOriginFlow = MutableStateFlow(Offset.Zero)
+
+    private fun getScreenSize() = Size(
+        ScreenUtils.getScreenWidth().toFloat(),
+        ScreenUtils.getScreenHeight().toFloat(),
+    )
+
+    private data class OverlayRegion(
+        val left: Int,
+        val top: Int,
+        val width: Int,
+        val height: Int,
+    )
 
     private fun attachViewIfNeeded() {
         if (isViewAttached) return
@@ -94,6 +109,62 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         if (!isViewAttached) return
         windowManager.removeView(view)
         isViewAttached = false
+    }
+
+    private fun applyOverlayRegion(region: OverlayRegion) {
+        layoutParams.x = region.left
+        layoutParams.y = region.top
+        layoutParams.width = region.width
+        layoutParams.height = region.height
+        overlayOriginFlow.value = Offset(region.left.toFloat(), region.top.toFloat())
+        if (isViewAttached) {
+            windowManager.updateViewLayout(view, layoutParams)
+        } else {
+            attachViewIfNeeded()
+        }
+    }
+
+    private fun buildOverlayRegion(
+        points: List<TrackPoint>,
+        swipePoints: List<SwipeTrackPoint>,
+        screenSize: Size,
+        curRotation: Int,
+    ): OverlayRegion? {
+        if (points.isEmpty() && swipePoints.isEmpty()) return null
+
+        var minX = Float.POSITIVE_INFINITY
+        var minY = Float.POSITIVE_INFINITY
+        var maxX = Float.NEGATIVE_INFINITY
+        var maxY = Float.NEGATIVE_INFINITY
+
+        fun expand(center: Offset) {
+            minX = minOf(minX, center.x - trackPadding)
+            minY = minOf(minY, center.y - trackPadding)
+            maxX = maxOf(maxX, center.x + trackPadding)
+            maxY = maxOf(maxY, center.y + trackPadding)
+        }
+
+        points.forEach { point ->
+            expand(point.getScreenCenter(screenSize, curRotation))
+        }
+        swipePoints.forEach { swipePoint ->
+            expand(swipePoint.start.getScreenCenter(screenSize, curRotation))
+            expand(swipePoint.end.getScreenCenter(screenSize, curRotation))
+        }
+
+        val screenWidth = screenSize.width.toInt()
+        val screenHeight = screenSize.height.toInt()
+        val left = minX.toInt().coerceIn(0, screenWidth)
+        val top = minY.toInt().coerceIn(0, screenHeight)
+        val right = kotlin.math.ceil(maxX.toDouble()).toInt().coerceIn(left + 1, screenWidth)
+        val bottom = kotlin.math.ceil(maxY.toDouble()).toInt().coerceIn(top + 1, screenHeight)
+
+        return OverlayRegion(
+            left = left,
+            top = top,
+            width = right - left,
+            height = bottom - top,
+        )
     }
 
     private fun DrawScope.drawTrackPoint(center: Offset) {
@@ -130,7 +201,12 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     }
 
     @Composable
-    private fun SwipePointCanvas(swipePoint: SwipeTrackPoint, curRotation: Int) {
+    private fun SwipePointCanvas(
+        swipePoint: SwipeTrackPoint,
+        curRotation: Int,
+        screenSize: Size,
+        overlayOrigin: Offset,
+    ) {
         val progress = remember { Animatable(0f) }
         LaunchedEffect(null) {
             // 匀速直线
@@ -141,9 +217,9 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
             delayRemovePosition(swipePoint.id)
         }
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val startCenter = swipePoint.start.getCenter(size, curRotation)
+            val startCenter = swipePoint.start.getCenter(screenSize, curRotation, overlayOrigin)
             drawTrackPoint(startCenter)
-            val endCenter = swipePoint.end.getCenter(size, curRotation)
+            val endCenter = swipePoint.end.getCenter(screenSize, curRotation, overlayOrigin)
             val midCenter = Offset(
                 lerp(startCenter.x, endCenter.x, progress.value),
                 lerp(startCenter.y, endCenter.y, progress.value)
@@ -161,17 +237,19 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     @Composable
     fun ComposeContent() {
         val curRotation by curRotationFlow.collectAsState()
+        val screenSize by screenSizeFlow.collectAsState()
+        val overlayOrigin by overlayOriginFlow.collectAsState()
         val positionList = pointListFlow.collectAsState().value
         Canvas(
             modifier = Modifier.fillMaxSize()
         ) {
             positionList.forEach { point ->
-                drawTrackPoint(point.getCenter(size, curRotation))
+                drawTrackPoint(point.getCenter(screenSize, curRotation, overlayOrigin))
             }
         }
         val swipePointList = swipePointListFlow.collectAsState().value
         swipePointList.forEach { swipePoint ->
-            key(swipePoint.id) { SwipePointCanvas(swipePoint, curRotation) }
+            key(swipePoint.id) { SwipePointCanvas(swipePoint, curRotation, screenSize, overlayOrigin) }
         }
     }
 
@@ -188,8 +266,8 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     }
 
     val layoutParams = WindowManager.LayoutParams(
-        ScreenUtils.getScreenWidth(),
-        ScreenUtils.getScreenHeight(),
+        1,
+        1,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
@@ -213,9 +291,16 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         onCreated { trackNotif.notifyService() }
         onCreated {
             scope.launch {
-                hasVisibleTrackFlow.collect { hasVisibleTrack ->
-                    if (hasVisibleTrack) {
-                        attachViewIfNeeded()
+                combine(
+                    pointListFlow,
+                    swipePointListFlow,
+                    curRotationFlow,
+                    screenSizeFlow,
+                ) { pointList, swipePointList, curRotation, screenSize ->
+                    buildOverlayRegion(pointList, swipePointList, screenSize, curRotation)
+                }.distinctUntilChanged().collect { region ->
+                    if (region != null) {
+                        applyOverlayRegion(region)
                     } else {
                         detachViewIfNeeded()
                     }
@@ -227,11 +312,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         onCreated {
             scope.launch {
                 resizeFlow.collect {
-                    layoutParams.width = ScreenUtils.getScreenWidth()
-                    layoutParams.height = ScreenUtils.getScreenHeight()
-                    if (isViewAttached) {
-                        windowManager.updateViewLayout(view, layoutParams)
-                    }
+                    screenSizeFlow.value = getScreenSize()
                 }
             }
         }
@@ -240,10 +321,6 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     companion object {
         private val pointListFlow = MutableStateFlow<List<TrackPoint>>(emptyList())
         private val swipePointListFlow = MutableStateFlow<List<SwipeTrackPoint>>(emptyList())
-        private val hasVisibleTrackFlow = combine(pointListFlow, swipePointListFlow) { pointList, swipePointList ->
-            pointList.isNotEmpty() || swipePointList.isNotEmpty()
-        }.distinctUntilChanged()
-
         private fun clearPosition() {
             pointListFlow.value = emptyList()
             swipePointListFlow.value = emptyList()
@@ -306,11 +383,15 @@ private data class TrackPoint(
     val screenHeight = ScreenUtils.getScreenHeight().toFloat()
     val rotation = app.compatDisplay.rotation
 
-    fun getCenter(size: Size, curRotation: Int): Offset {
+    fun getScreenCenter(size: Size, curRotation: Int): Offset {
         val curWidth = size.width
         val curHeight = size.height
         val (physX, physY) = screenToPhysical(x, y, screenWidth, screenHeight, rotation)
         return physicalToScreen(physX, physY, curWidth, curHeight, curRotation)
+    }
+
+    fun getCenter(size: Size, curRotation: Int, overlayOrigin: Offset): Offset {
+        return getScreenCenter(size, curRotation) - overlayOrigin
     }
 
     private fun screenToPhysical(
