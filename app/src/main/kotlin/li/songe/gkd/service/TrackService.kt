@@ -56,19 +56,66 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-// 轨迹样式尽保持原版，只统一缩小10%避免低分辨率设备指示器过大
-private const val TRACK_SCALE = 0.9f
+private const val BASE_STROKE_WIDTH = 2f
+private const val BASE_LINE_MARGIN = 75f
+private const val BASE_CENTER_RADIUS = 10f
+private const val BASE_INNER_RING_RADIUS = 20f
+private const val BASE_OUTER_RING_RADIUS = 30f
+private const val BASE_RING_STROKE_WIDTH = 4f
+private const val BASE_OVERLAY_PADDING = 8f
+
+private const val TRACK_BASELINE_DENSITY = 440f
+private const val TRACK_BASELINE_SHORT_SIDE = 1080f
+private const val TRACK_MIN_SCALE = 0.65f
+private const val TRACK_MAX_SCALE = 1.15f
 private const val TRACK_REMOVE_DELAY = 7500L
 
-private val strokeWidth = 2f * TRACK_SCALE
-private val lineMargin = 75f * TRACK_SCALE
-private val centerRadius = 10f * TRACK_SCALE
-private val innerRingRadius = 20f * TRACK_SCALE
-private val outerRingRadius = 30f * TRACK_SCALE
-private val ringStrokeWidth = 4f * TRACK_SCALE
-private val overlayPadding = 8f * TRACK_SCALE
-private val trackReach = max(lineMargin, outerRingRadius + ringStrokeWidth / 2f)
-private val pointOverlaySize = ceil((trackReach + overlayPadding) * 2f).toInt()
+private data class TrackMetrics(
+    val strokeWidth: Float,
+    val lineMargin: Float,
+    val centerRadius: Float,
+    val innerRingRadius: Float,
+    val outerRingRadius: Float,
+    val ringStrokeWidth: Float,
+    val overlayPadding: Float,
+    val trackReach: Float,
+    val pointOverlaySize: Int,
+)
+
+// 以 1080 宽 / 440dpi 设备作为基准，优先参考 dpi；
+// 对更窄的屏幕额外缩小，避免同 dpi 下窄屏设备视觉占比过大。
+// 最终再钳制到 0.65 ~ 1.15，避免极端设备把指示器缩放得过小或过大。
+private fun getTrackScale(): Float {
+    val densityScale = ScreenUtils.getScreenDensityDpi() / TRACK_BASELINE_DENSITY
+    val shortSide = min(ScreenUtils.getScreenWidth(), ScreenUtils.getScreenHeight()).toFloat()
+    val shortSideScale = shortSide / TRACK_BASELINE_SHORT_SIDE
+    val rawScale = densityScale * min(1f, shortSideScale)
+    return rawScale.coerceIn(TRACK_MIN_SCALE, TRACK_MAX_SCALE)
+}
+
+private fun getTrackMetrics(): TrackMetrics {
+    val scale = getTrackScale()
+    val strokeWidth = BASE_STROKE_WIDTH * scale
+    val lineMargin = BASE_LINE_MARGIN * scale
+    val centerRadius = BASE_CENTER_RADIUS * scale
+    val innerRingRadius = BASE_INNER_RING_RADIUS * scale
+    val outerRingRadius = BASE_OUTER_RING_RADIUS * scale
+    val ringStrokeWidth = BASE_RING_STROKE_WIDTH * scale
+    val overlayPadding = BASE_OVERLAY_PADDING * scale
+    val trackReach = max(lineMargin, outerRingRadius + ringStrokeWidth / 2f)
+    val pointOverlaySize = ((trackReach + overlayPadding) * 2f).roundToInt().coerceAtLeast(1)
+    return TrackMetrics(
+        strokeWidth = strokeWidth,
+        lineMargin = lineMargin,
+        centerRadius = centerRadius,
+        innerRingRadius = innerRingRadius,
+        outerRingRadius = outerRingRadius,
+        ringStrokeWidth = ringStrokeWidth,
+        overlayPadding = overlayPadding,
+        trackReach = trackReach,
+        pointOverlaySize = pointOverlaySize,
+    )
+}
 
 class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     override fun onCreate() {
@@ -94,6 +141,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
     private val overlayEntries = linkedMapOf<Int, OverlayEntry>()
     private val resizeFlow = MutableSharedFlow<Unit>()
     private var currentScreenSize = getScreenSize()
+    private var currentTrackMetrics = getTrackMetrics()
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         lifecycleScope.launch { resizeFlow.emit(Unit) }
@@ -109,6 +157,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         onCreated {
             instance = this
             currentScreenSize = getScreenSize()
+            currentTrackMetrics = getTrackMetrics()
         }
         onCreated { trackNotif.notifyService() }
         onCreated {
@@ -116,6 +165,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
                 resizeFlow.collect {
                     curRotationFlow.value = app.compatDisplay.rotation
                     currentScreenSize = getScreenSize()
+                    currentTrackMetrics = getTrackMetrics()
                     overlayEntries.values.toList().forEach { it.updateLayout() }
                 }
             }
@@ -161,36 +211,36 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         }
     }
 
-    // 点位绘制
-    private fun DrawScope.drawTrackPoint(center: Offset) {
+    // 点位绘制统一读取同一份尺寸数据，保证普通点和 swipe 风格一致。
+    private fun DrawScope.drawTrackPoint(center: Offset, metrics: TrackMetrics = currentTrackMetrics) {
         drawLine(
             color = Color.Yellow,
-            start = Offset(center.x, center.y - lineMargin),
-            end = Offset(center.x, center.y + lineMargin),
-            strokeWidth = strokeWidth,
+            start = Offset(center.x, center.y - metrics.lineMargin),
+            end = Offset(center.x, center.y + metrics.lineMargin),
+            strokeWidth = metrics.strokeWidth,
         )
         drawLine(
             color = Color.Yellow,
-            start = Offset(center.x - lineMargin, center.y),
-            end = Offset(center.x + lineMargin, center.y),
-            strokeWidth = strokeWidth,
+            start = Offset(center.x - metrics.lineMargin, center.y),
+            end = Offset(center.x + metrics.lineMargin, center.y),
+            strokeWidth = metrics.strokeWidth,
         )
         drawCircle(
             color = Color.Red,
-            radius = centerRadius,
+            radius = metrics.centerRadius,
             center = center,
         )
         drawCircle(
             color = Color.Red,
-            radius = innerRingRadius,
+            radius = metrics.innerRingRadius,
             center = center,
-            style = Stroke(ringStrokeWidth),
+            style = Stroke(metrics.ringStrokeWidth),
         )
         drawCircle(
             color = Color.Red,
-            radius = outerRingRadius,
+            radius = metrics.outerRingRadius,
             center = center,
-            style = Stroke(ringStrokeWidth),
+            style = Stroke(metrics.ringStrokeWidth),
         )
     }
 
@@ -228,7 +278,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
                 color = Color.Blue,
                 start = startCenter,
                 end = midCenter,
-                strokeWidth = strokeWidth,
+                strokeWidth = currentTrackMetrics.strokeWidth,
             )
         }
     }
@@ -282,9 +332,9 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
             }
         }
 
-        protected fun scheduleRemoval(delayMillis: Long) {
+        protected fun scheduleRemoval() {
             mainHandler.removeCallbacks(removeRunnable)
-            mainHandler.postDelayed(removeRunnable, delayMillis)
+            mainHandler.postDelayed(removeRunnable, TRACK_REMOVE_DELAY)
         }
 
         protected open fun onAttached() {}
@@ -302,14 +352,14 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         }
 
         override fun onAttached() {
-            scheduleRemoval(TRACK_REMOVE_DELAY)
+            scheduleRemoval()
         }
 
         override fun updateLayoutParams(params: WindowManager.LayoutParams) {
             val center = point.getCenter(currentScreenSize, curRotationFlow.value)
-            val halfSize = pointOverlaySize / 2f
-            params.width = pointOverlaySize
-            params.height = pointOverlaySize
+            val halfSize = currentTrackMetrics.pointOverlaySize / 2f
+            params.width = currentTrackMetrics.pointOverlaySize
+            params.height = currentTrackMetrics.pointOverlaySize
             params.x = (center.x - halfSize).roundToInt()
             params.y = (center.y - halfSize).roundToInt()
         }
@@ -327,7 +377,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
                     SwipePointCanvas(
                         swipePoint = swipePoint,
                         layout = layout,
-                        onAnimationFinished = { scheduleRemoval(TRACK_REMOVE_DELAY) },
+                        onAnimationFinished = { scheduleRemoval() },
                     )
                 }
             }
@@ -346,7 +396,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
             // 轨迹窗口只包住起点、终点和十字线可见范围，不再合并其他轨迹。
             val startCenter = swipePoint.start.getCenter(currentScreenSize, curRotationFlow.value)
             val endCenter = swipePoint.end.getCenter(currentScreenSize, curRotationFlow.value)
-            val reach = trackReach + overlayPadding
+            val reach = currentTrackMetrics.trackReach + currentTrackMetrics.overlayPadding
             val left = floor(min(startCenter.x, endCenter.x) - reach).toInt()
             val top = floor(min(startCenter.y, endCenter.y) - reach).toInt()
             val right = ceil(max(startCenter.x, endCenter.x) + reach).toInt()
