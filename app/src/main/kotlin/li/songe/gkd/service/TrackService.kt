@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -256,7 +255,7 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         onAnimationFinished: () -> Unit,
     ) {
         val progress = remember { Animatable(0f) }
-        LaunchedEffect(swipePoint.id) {
+        LaunchedEffect(Unit) {
             progress.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(swipePoint.duration.toInt(), easing = LinearEasing),
@@ -381,15 +380,13 @@ class TrackService : LifecycleService(), SavedStateRegistryOwner, OnSimpleLife {
         override val view by lazy {
             createComposeView {
                 val layout by layoutFlow.collectAsState()
-                key(swipePoint.id) {
-                    SwipePointCanvas(
-                        swipePoint = swipePoint,
-                        layout = layout,
-                        onAnimationFinished = { scheduleRemoval() },
+                SwipePointCanvas(
+                    swipePoint = swipePoint,
+                    layout = layout,
+                    onAnimationFinished = { scheduleRemoval() },
                     )
                 }
             }
-        }
 
         override fun updateLayoutParams(params: WindowManager.LayoutParams) {
             val layout = buildLayout()
