@@ -1,6 +1,7 @@
 package li.songe.gkd.util
 
 import android.graphics.Bitmap
+import android.os.Build
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +56,7 @@ object SnapshotExt {
         }
     }
 
-    fun screenshotFile(id: Long) = snapshotParentPath(id).resolve("${id}.png")
+    fun screenshotFile(id: Long) = snapshotParentPath(id).resolve("${id}.webp")
 
     suspend fun snapshotZipFile(
         snapshotId: Long,
@@ -184,7 +185,12 @@ object SnapshotExt {
             withContext(Dispatchers.IO) {
                 snapshotParentPath(snapshot.id).autoMk()
                 screenshotFile(snapshot.id).outputStream().use { stream ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                    val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        Bitmap.CompressFormat.WEBP_LOSSLESS // android11+
+                    } else {
+                        Bitmap.CompressFormat.WEBP
+                    }
+                    bitmap.compress(format, 100,stream)
                 }
                 snapshotFile(snapshot.id).writeText(keepNullJson.encodeToString(snapshot))
                 minSnapshotFile(snapshot.id).writeText(
