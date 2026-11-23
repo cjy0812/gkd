@@ -1242,4 +1242,26 @@
 <string name="network_event_logs_title">网络日志</string>
 <string name="network_event_logs_clear">清空</string>
 <string name="network_event_logs_empty">暂无网络日志。开启网络兼容性并触发 GitHub 请求后，这里会显示规则命中、DNS 兜底及连接详情</string>
+<string name="settings_network">网络</string>
+<string name="network_settings_title">网络</string>
+<string name="network_settings_subtitle">网络兼容性、DNS 与请求诊断</string>
+<string name="network_compatibility_section">网络兼容性</string>
+<string name="network_sni_strategy">SNI 策略（互斥选择）</string>
+<string name="network_sni_native">规则 SNI</string>
+<string name="network_sni_native_description">使用匹配规则中的 SNI，由原生 TLS 客户端建立连接</string>
+<string name="network_sni_empty_fallback">空 SNI 兜底</string>
+<string name="network_sni_empty_fallback_description">仅在没有匹配规则时，使用所选 DNS 解析原始域名并通过 IP 发起无 SNI 连接</string>
+<string name="network_dns_section">DNS 解析</string>
+<string name="network_dns_title">DNS 服务商</string>
+<string name="network_dns_system">系统 DNS</string>
+<string name="network_dns_cloudflare">Cloudflare DoH</string>
+<string name="network_dns_google">Google DoH</string>
+<string name="network_dns_adguard">AdGuard DoH</string>
+<string name="network_dns_custom">自定义 DoH</string>
+<string name="network_dns_custom_help">使用 HTTPS JSON DoH 地址，支持 {name} 和可选的 {type} 占位符。例如：https://dns.example/dns-query?name={name}&amp;type={type}。目前只查询 A 记录。</string>
+<string name="network_rules_summary">%1$d 条 GitHub 规则 · 支持 URL 导入和手动编辑</string>
+<string name="network_diagnostics_section">诊断</string>
+<string name="network_log_overlay">悬浮网络日志</string>
+<string name="network_log_overlay_description">在可拖动的悬浮窗中实时观察最近的网络请求</string>
+<string name="network_log_overlay_notification">网络日志悬浮窗正在运行</string>
 </resources>
