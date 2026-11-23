@@ -29,6 +29,7 @@ object GithubDnsResolver {
             .replace("{name}", encodedHost)
             .replace("{type}", "A")
         require(endpoint.startsWith("https://", ignoreCase = true)) { "DoH 必须使用 HTTPS" }
+        NetworkEventLog.info(host, "DNS 查询：$mode")
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             connectTimeout = 4000
             readTimeout = 4000
@@ -36,8 +37,11 @@ object GithubDnsResolver {
             setRequestProperty("User-Agent", "GKD-Network-Compatibility")
         }
         try {
-            check(connection.responseCode in 200..299) { "DoH HTTP ${connection.responseCode}" }
-            val json = Json.parseToJsonElement(connection.inputStream.bufferedReader().use { it.readText() }).jsonObject
+            val status = connection.responseCode
+            NetworkEventLog.request("dns:$mode", "GET", endpoint, status = status)
+            check(status in 200..299) { "DoH HTTP $status" }
+            val responseText = connection.inputStream.bufferedReader().use { it.readText().also { body -> check(body.length <= 64 * 1024) { "DoH 响应超过 64 KiB" } } }
+            val json = Json.parseToJsonElement(responseText).jsonObject
             val answers = json["Answer"]?.jsonArray.orEmpty()
             val ips = answers.mapNotNull { answer ->
                 val item = answer.jsonObject
@@ -45,6 +49,9 @@ object GithubDnsResolver {
                 item["data"]?.jsonPrimitive?.content
             }.filter { it.matches(Regex("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")) }
             return ips.distinct().map(InetAddress::getByName)
+        } catch (error: Exception) {
+            NetworkEventLog.request("dns:$mode", "GET", endpoint, error = error.javaClass.simpleName)
+            throw error
         } finally {
             connection.disconnect()
         }
