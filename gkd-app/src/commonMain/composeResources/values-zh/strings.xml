@@ -1267,4 +1267,5 @@
 <string name="network_dns_custom_doh">自定义 DoH</string>
 <string name="network_dns_custom_server">自定义 DNS 服务器（UDP）</string>
 <string name="network_dns_custom_server_help">填写 IPv4 DNS 服务器地址，使用 UDP 53 端口查询。部分网络会屏蔽传统 DNS，可改用预设或自定义 DoH。</string>
+<string name="network_log_overlay_hint">长按收起 · 拖动移动</string>
 </resources>
