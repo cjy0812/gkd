@@ -110,7 +110,7 @@ fun NetworkSettingsPage() {
 
     if (showCustomDns) {
         GkSettingsDialog(
-            title = stringResource(Res.string.network_dns_custom),
+            title = stringResource(Res.string.network_dns_custom_doh),
             onDismissRequest = { showCustomDns = false },
         ) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
