@@ -48,7 +48,7 @@ fun HttpClientConfig<*>.installNetworkEventLogging() {
         handleResponseExceptionWithRequest { cause, request ->
             NetworkEventLog.error(
                 request.url.host,
-                "${cause::class.simpleName}: ${cause.message.orEmpty().take(240)}",
+                "${cause::class.simpleName}: ${networkFailureSummary(cause) ?: "request failed"}",
             )
         }
     }
