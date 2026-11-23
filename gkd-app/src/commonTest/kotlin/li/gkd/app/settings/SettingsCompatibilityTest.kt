@@ -91,6 +91,21 @@ class SettingsCompatibilityTest {
         assertEquals(7, inherited.subsExcludeAppGroupType)
     }
 
+
+    @Test
+    fun networkCompatibilitySettingsRoundTrip() {
+        val saved =
+            SettingsStore(
+                enableGithubNetworkCompatibility = true,
+                githubHostRulesUrl = "https://example.com/rules.json",
+                githubHostRulesJson = """[[["api.github.com"],"","192.0.2.1"]]""",
+                githubTlsBaselineFingerprint = "AA:BB:CC",
+                githubTlsBaselineJson = """{"host":"api.github.com","sha256":"AA:BB:CC"}""",
+            )
+        val restored = Json.decodeFromString<SettingsStore>(Json.encodeToString(saved))
+        assertEquals(saved, restored)
+    }
+
     @Test
     fun discardedRuleDisplayFieldDoesNotSetEitherPagePreference() {
         val store =
