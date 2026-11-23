@@ -1,5 +1,6 @@
 package li.gkd.app.ui.log
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +36,22 @@ import li.gkd.app.ui.component.GkTopAppBar
 fun NetworkEventLogPage() {
     val mainVm = MainViewModel.requireCurrent()
     val events by NetworkEventLog.events.collectAsStateWithLifecycle()
+    var selectedEvent by remember { mutableStateOf<NetworkEvent?>(null) }
+    selectedEvent?.let { event ->
+        li.gkd.app.ui.component.GkAlertDialog(
+            onDismissRequest = { selectedEvent = null },
+            title = { Text("${event.level} · ${event.host}") },
+            text = {
+                Column {
+                    Text(event.time.format("yyyy-MM-dd HH:mm:ss.SSS"))
+                    if (event.method.isNotEmpty()) Text("${event.method} ${event.requestUrl}")
+                    Text(event.detail)
+                    Text("事件 ID：${event.id}")
+                }
+            },
+            confirmButton = { TextButton(onClick = { selectedEvent = null }) { Text(stringResource(Res.string.action_confirm)) } },
+        )
+    }
     GkScaffold(
         topBar = {
             GkTopAppBar(
@@ -62,8 +82,8 @@ fun NetworkEventLogPage() {
                 )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(events.asReversed(), key = { it.time.toString() + it.host + it.message }) { event ->
-                        NetworkEventRow(event)
+                    items(events.asReversed(), key = { it.id }) { event ->
+                        NetworkEventRow(event, onClick = { selectedEvent = event })
                     }
                     item { GkPageBottomSpace() }
                 }
