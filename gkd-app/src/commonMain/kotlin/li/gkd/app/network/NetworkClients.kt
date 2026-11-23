@@ -54,7 +54,7 @@ object NetworkClients {
 
         // Resolve with the selected provider even when empty-SNI fallback is disabled.
         val addresses = try {
-            withContext(Dispatchers.IO) { GithubDnsResolver.resolve(host, store.githubDnsMode, store.githubDnsCustomUrl) }
+            withContext(Dispatchers.IO) { GithubDnsResolver.resolve(host, store.githubDnsMode, store.githubDnsCustomUrl, store.githubDnsCustomServer) }
                 .map { it.hostAddress.substringBefore('%') }.distinct()
         } catch (error: Exception) {
             NetworkEventLog.error(host, "DNS 解析失败：${error.message}")
