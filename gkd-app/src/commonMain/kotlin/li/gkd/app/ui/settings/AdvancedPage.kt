@@ -48,6 +48,7 @@ import li.gkd.app.ui.navigation.AppNavEntry
 import li.gkd.app.ui.navigation.DebugSettingsRoute
 import li.gkd.app.ui.navigation.ExternalCallsRoute
 import li.gkd.app.ui.navigation.MatchDebugRoute
+import li.gkd.app.ui.navigation.NetworkEventLogRoute
 import li.gkd.app.ui.navigation.QuickSettingsTilesRoute
 import li.gkd.app.ui.navigation.SnapshotPageRoute
 import li.gkd.app.ui.navigation.SnapshotSettingsRoute
@@ -215,7 +216,7 @@ fun AdvancedPage(
                 title = stringResource(Res.string.external_calls_title),
                 onClick = { mainVm.navigator.navigate(ExternalCallsRoute) },
             )
-            AdvancedSectionTitle(stringResource(Res.string.github_network_compatibility))
+            GkSettingItem(\n                title = stringResource(Res.string.network_event_logs),\n                subtitle = stringResource(Res.string.network_event_logs_description),\n                onClick = { mainVm.navigator.navigate(NetworkEventLogRoute) },\n            )\n            AdvancedSectionTitle(stringResource(Res.string.github_network_compatibility))
             GkTextSwitch(
                 title = stringResource(Res.string.github_network_compatibility),
                 subtitle = stringResource(Res.string.github_network_compatibility_description),
