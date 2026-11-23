@@ -60,7 +60,7 @@ object GithubDnsResolver {
                 val item = answer.jsonObject
                 if (item["type"]?.jsonPrimitive?.content != "1") return@mapNotNull null
                 item["data"]?.jsonPrimitive?.content
-            }.filter(String::isValidIpv4)
+            }.filter { it.isValidIpv4() }
             return ips.distinct().map(InetAddress::getByName)
         } catch (error: Exception) {
             NetworkEventLog.request("dns:$mode", "GET", endpoint, error = error.javaClass.simpleName)
@@ -138,7 +138,7 @@ object GithubDnsResolver {
             val size = bytes[offset].toInt() and 0xFF
             if (size == 0) return offset + 1
             if ((size and 0xC0) == 0xC0) return offset + 2
-            check(size and 0xC0 == 0) { "DNS 标签编码无效" }
+            check((size and 0xC0) == 0) { "DNS 标签编码无效" }
             offset += size + 1
         }
         error("DNS 域名字段不完整")
