@@ -55,6 +55,7 @@ actual fun createGithubRuleClient(host: String, rule: GithubHostRule): HttpClien
                 }
             }
             https {
+                // null omits the SNI extension; the trust manager still checks the original URL host SAN.
                 serverName = rule.sni.takeIf(String::isNotEmpty)
                 trustManager = hostCheckingTrustManager
             }
