@@ -225,7 +225,7 @@ fun NetworkSettingsPage() {
             )
             GkSettingItem(
                 title = stringResource(Res.string.github_network_settings_title),
-                subtitle = stringResource(Res.string.network_rules_summary, runCatching { li.gkd.app.network.GithubHostRules.parse(store.githubHostRulesJson).size }.getOrDefault(0)),
+                subtitle = stringResource(Res.string.network_rules_summary, runCatching { li.gkd.app.network.GithubHostRules.parse(store.githubHostRulesJson).size }.getOrDefault(0).toString()),
                 onClick = { showRules = true },
             )
             Text(
