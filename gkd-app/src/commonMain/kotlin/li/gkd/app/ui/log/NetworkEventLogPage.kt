@@ -18,8 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import li.gkd.app.network.NetworkEvent
 import li.gkd.app.network.NetworkEventLog
+import li.gkd.app.resources.*
+import org.jetbrains.compose.resources.stringResource
 import li.gkd.app.time.format
 import li.gkd.app.ui.MainViewModel
+import li.gkd.app.ui.component.GkPageBottomSpace
 import li.gkd.app.ui.component.GkIconButton
 import li.gkd.app.ui.component.GkIcons
 import li.gkd.app.ui.component.GkScaffold
@@ -35,7 +38,7 @@ fun NetworkEventLogPage() {
                 navigationIcon = {
                     GkIconButton(imageVector = GkIcons.ArrowBack, onClick = mainVm.navigator::pop)
                 },
-                title = { Text("网络日志") },
+                title = { Text(stringResource(Res.string.network_event_logs_title)) },
             )
         },
     ) { contentPadding ->
@@ -47,12 +50,12 @@ fun NetworkEventLogPage() {
                 horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(onClick = NetworkEventLog::clear, enabled = events.isNotEmpty()) {
-                    Text("清空")
+                    Text(stringResource(Res.string.network_event_logs_clear))
                 }
             }
             if (events.isEmpty()) {
                 Text(
-                    "暂无网络日志。开启网络兼容性并触发 GitHub 请求后，这里会显示规则匹配、DNS 回退及连接方式。",
+                    stringResource(Res.string.network_event_logs_empty),
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -62,6 +65,7 @@ fun NetworkEventLogPage() {
                     items(events.asReversed(), key = { it.time.toString() + it.host + it.message }) { event ->
                         NetworkEventRow(event)
                     }
+                    item { GkPageBottomSpace() }
                 }
             }
         }
