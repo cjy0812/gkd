@@ -50,12 +50,7 @@ object NetworkClients {
             }
         }
 
-        if (!store.githubEmptySniFallback) {
-            NetworkEventLog.info(host, "没有匹配规则，使用默认 TLS/SNI")
-            return client
-        }
-
-        // Explicit empty-SNI fallback: resolve the original host through the selected DNS provider.
+        // Resolve with the selected provider even when empty-SNI fallback is disabled.
         val addresses = try {
             GithubDnsResolver.resolve(host, store.githubDnsMode, store.githubDnsCustomUrl)
                 .map { it.hostAddress.substringBefore('%') }.distinct()
@@ -65,17 +60,21 @@ object NetworkClients {
         }
         val ipv4 = addresses.filter { it.matches(Regex("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")) }
         if (ipv4.isEmpty()) {
-            NetworkEventLog.warn(host, "DNS 未返回 IPv4，保持系统默认连接")
+            NetworkEventLog.warn(host, "所选 DNS 未返回 IPv4，保持系统默认连接")
             return client
         }
+        val useEmptySni = store.githubEmptySniFallback
         val fallbackRule = GithubHostRule(
             domains = listOf(host),
-            sni = "",
+            sni = if (useEmptySni) "" else host,
             ip = ipv4.first(),
             resolvedIps = ipv4,
         )
-        NetworkEventLog.warn(host, "无匹配规则，DNS 兜底：IP=${ipv4.joinToString()}，尝试空 SNI")
-        val key = listOf(host, "auto-empty-sni", ipv4.joinToString(",")).joinToString("|")
+        NetworkEventLog.info(
+            host,
+            "无匹配规则，DNS=${store.githubDnsMode}，IP=${ipv4.joinToString()}，SNI=${fallbackRule.sni.ifEmpty { "(empty)" }}",
+        )
+        val key = listOf(host, "auto-dns", fallbackRule.sni, ipv4.joinToString(",")).joinToString("|")
         return cachedClient(key) { createGithubRuleClient(host, fallbackRule, false) }
     }
 
