@@ -1246,4 +1246,7 @@
 <string name="github_okhttp_sni_workaround_description">Rewrite the TLS URL host to the configured SNI and resolve it to the rule IP; the original HTTP Host and certificate hostname are still checked. Only applies to non-empty SNI rules.</string>
 <string name="network_event_logs">Network logs</string>
 <string name="network_event_logs_description">View GitHub rule selection, DNS fallback and connection strategy</string>
+<string name="network_event_logs_title">Network logs</string>
+<string name="network_event_logs_clear">Clear</string>
+<string name="network_event_logs_empty">No network logs yet. Enable network compatibility and trigger a GitHub request to see rule matching, DNS fallback and connection details.</string>
 </resources>
