@@ -13,8 +13,7 @@ import java.io.File
 import java.net.URI
 
 object UpdateClient {
-    suspend fun fetch(url: String): NewVersion =
-        NetworkClients.clientFor(url).get(url) { expectSuccess = true }.body()
+    suspend fun fetch(url: String): NewVersion {\n        NetworkEventLog.info(url.substringAfter("://").substringBefore("/"), "开始检查更新")\n        return try {\n            NetworkClients.clientFor(url).get(url) { expectSuccess = true }.body<NewVersion>().also {\n                NetworkEventLog.info(url.substringAfter("://").substringBefore("/"), "更新请求成功")\n            }\n        } catch (error: Exception) {\n            NetworkEventLog.error(url.substringAfter("://").substringBefore("/"), "更新请求失败：${error::class.simpleName}: ${error.message}")\n            throw error\n        }\n    }
 
     suspend fun download(url: String, file: File, size: Long, progress: (Float) -> Unit) {
         var currentUrl = url
