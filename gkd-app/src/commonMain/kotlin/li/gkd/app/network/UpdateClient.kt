@@ -6,6 +6,7 @@ import io.ktor.client.plugins.onDownload
 import io.ktor.client.request.get
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpHeaders
 import io.ktor.util.cio.writeChannel
 import io.ktor.utils.io.copyAndClose
 import java.io.File
@@ -27,6 +28,7 @@ object UpdateClient {
                 .execute { response ->
                     if (response.status.value in 300..399) {
                         redirectLocation = response.headers[HttpHeaders.Location]
+                            ?: error("下载重定向缺少 Location 响应头")
                     } else {
                         check(response.status.value in 200..299) {
                             "下载失败：HTTP ${response.status.value}"
