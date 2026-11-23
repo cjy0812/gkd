@@ -5,7 +5,6 @@ import io.ktor.client.plugins.HttpResponseValidator
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import li.gkd.app.logging.LogUtils
 
 data class NetworkEvent(
     val time: Long,
@@ -31,7 +30,6 @@ object NetworkEventLog {
 
     fun clear() {
         synchronized(lock) { mutableEvents.value = emptyList() }
-        LogUtils.i("network compatibility logs cleared", tag = "Network")
     }
 
     fun request(host: String, method: String, url: String, status: Int? = null, error: String? = null) {
@@ -52,7 +50,6 @@ object NetworkEventLog {
         synchronized(lock) {
             mutableEvents.value = (mutableEvents.value + event).takeLast(MAX_EVENTS)
         }
-        LogUtils.i("[$level] $host: $message", tag = "Network")
     }
 }
 
