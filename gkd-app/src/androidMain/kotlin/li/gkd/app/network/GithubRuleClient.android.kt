@@ -12,6 +12,7 @@ import java.net.InetAddress
 import java.security.KeyStore
 import java.security.cert.X509Certificate
 import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 import kotlinx.serialization.json.Json
@@ -40,7 +41,7 @@ actual fun createGithubRuleClient(
                     Dns.SYSTEM.lookup(requestedHost)
                 }
             })
-            .sslSocketFactory(HttpsURLConnection.getDefaultSSLSocketFactory() as javax.net.ssl.SSLSocketFactory, systemTrustManager)
+            .sslSocketFactory(\n                SSLContext.getInstance("TLS").apply { init(null, arrayOf(systemTrustManager), null) }.socketFactory,\n                systemTrustManager,\n            )
             .hostnameVerifier { _, session ->
                 HttpsURLConnection.getDefaultHostnameVerifier().verify(host, session)
             }
