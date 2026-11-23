@@ -14,6 +14,7 @@ import li.gkd.app.ui.home.NotificationTextPage
 import li.gkd.app.ui.log.A11yEventLogPage
 import li.gkd.app.ui.log.ActivityLogPage
 import li.gkd.app.ui.log.MatchDebugPage
+import li.gkd.app.ui.log.NetworkEventLogPage
 import li.gkd.app.ui.settings.AboutPage
 import li.gkd.app.ui.settings.AdvancedPage
 import li.gkd.app.ui.settings.AppWhitelistPage
@@ -69,6 +70,7 @@ fun GkAppNavigation() {
                 is ImagePreviewRoute -> ImagePreviewPage(route)
 
                 ActivityLogRoute -> ActivityLogPage()
+                NetworkEventLogRoute -> NetworkEventLogPage()
                 A11yEventLogRoute -> A11yEventLogPage()
                 BlockA11yAppListRoute -> ServiceScopeAppListPage(ServiceScopeKind.Disabled)
                 CompanionScopeAppListRoute -> ServiceScopeAppListPage(ServiceScopeKind.Companion)
