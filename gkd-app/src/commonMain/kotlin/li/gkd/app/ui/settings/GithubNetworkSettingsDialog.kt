@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import li.gkd.app.network.GithubCertificateReport
@@ -59,6 +60,11 @@ fun GithubNetworkSettingsDialog(
     var status by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val savedBaseline = remember(baselineJson) {
+        baselineJson.takeIf(String::isNotBlank)?.let { json ->
+            runCatching { Json.decodeFromString<GithubCertificateReport>(json) }.getOrNull()
+        }
+    }
 
     GkAlertDialog(
         onDismissRequest = onDismiss,
@@ -82,6 +88,12 @@ fun GithubNetworkSettingsDialog(
                     minLines = 7,
                     maxLines = 14,
                 )
+                savedBaseline?.let { report ->
+                    Text(
+                        text = "已保存基准：${report.sha256}\n签发者：${report.issuer}\nSAN：${report.subjectAltNames.joinToString()}\n有效期：${report.notBefore} 至 ${report.notAfter}",
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 status?.let { Text(text = it, modifier = Modifier.padding(top = 8.dp)) }
             }
         },
