@@ -85,12 +85,19 @@ fun NetworkSettingsPage() {
             ).forEach { (mode, label) ->
                 TextButton(
                     onClick = {
-                        if (mode == "custom") {
-                            showDns = false
-                            showCustomDns = true
-                        } else {
-                            SettingsRepository.updateSettings { it.copy(githubDnsMode = mode) }
-                            showDns = false
+                        when (mode) {
+                            "custom-doh" -> {
+                                showDns = false
+                                showCustomDns = true
+                            }
+                            "custom-dns" -> {
+                                showDns = false
+                                showCustomDnsServer = true
+                            }
+                            else -> {
+                                SettingsRepository.updateSettings { it.copy(githubDnsMode = mode) }
+                                showDns = false
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -131,6 +138,54 @@ fun NetworkSettingsPage() {
                                     it.copy(githubDnsMode = "custom-doh", githubDnsCustomUrl = value)
                                 }
                                 showCustomDns = false
+                            }
+                        },
+                    ) {
+                        Text(stringResource(Res.string.action_save))
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCustomDnsServer) {
+        GkSettingsDialog(
+            title = stringResource(Res.string.network_dns_custom_server),
+            onDismissRequest = { showCustomDnsServer = false },
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Text(
+                    stringResource(Res.string.network_dns_custom_server_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                GkOutlinedTextField(
+                    value = customDnsServer,
+                    onValueChange = { customDnsServer = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
+                ) {
+                    TextButton(onClick = { showCustomDnsServer = false }) {
+                        Text(stringResource(Res.string.action_cancel))
+                    }
+                    TextButton(
+                        onClick = {
+                            val parts = customDnsServer.trim().split(".")
+                            val valid = parts.size == 4 && parts.all {
+                                it.toIntOrNull()?.let { value -> value in 0..255 } == true
+                            }
+                            if (valid) {
+                                SettingsRepository.updateSettings {
+                                    it.copy(
+                                        githubDnsMode = "custom-dns",
+                                        githubDnsCustomServer = customDnsServer.trim(),
+                                    )
+                                }
+                                showCustomDnsServer = false
                             }
                         },
                     ) {
@@ -225,7 +280,8 @@ fun NetworkSettingsPage() {
                         "cloudflare" -> Res.string.network_dns_cloudflare
                         "google" -> Res.string.network_dns_google
                         "adguard" -> Res.string.network_dns_adguard
-                        "custom", "custom-doh" -> Res.string.network_dns_custom_doh\n                        "custom-dns" -> Res.string.network_dns_custom_server
+                        "custom", "custom-doh" -> Res.string.network_dns_custom_doh
+                        "custom-dns" -> Res.string.network_dns_custom_server
                         else -> Res.string.network_dns_system
                     },
                 ),
