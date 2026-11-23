@@ -80,9 +80,11 @@ class SettingsCompatibilityTest {
         assertEquals(0, defaults.updateChannel)
         assertEquals(1, defaults.snapshotDisplayMode)
         assertFalse(defaults.enableGithubNetworkCompatibility)
-        assertEquals("https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json", defaults.githubHostRulesUrl)
+        assertEquals(
+            "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
+            defaults.githubHostRulesUrl,
+        )
         assertEquals("", defaults.githubTlsBaselineFingerprint)
-        assertEquals("", defaults.githubTlsBaselineJson)
         assertEquals("", defaults.githubTlsBaselineJson)
         val inherited = Json.decodeFromString<SettingsStore>("""{"appGroupType":7}""")
         assertEquals(7, inherited.serviceScopeAppGroupType)
