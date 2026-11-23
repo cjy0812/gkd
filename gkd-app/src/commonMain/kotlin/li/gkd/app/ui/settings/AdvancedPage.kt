@@ -225,6 +225,14 @@ fun AdvancedPage(
                     SettingsRepository.updateSettings { it.copy(enableGithubNetworkCompatibility = enabled) }
                 },
             )
+            GkTextSwitch(
+                title = stringResource(Res.string.github_okhttp_sni_workaround),
+                subtitle = stringResource(Res.string.github_okhttp_sni_workaround_description),
+                checked = store.githubUseOkHttpSniWorkaround,
+                onCheckedChange = { enabled ->
+                    SettingsRepository.updateSettings { it.copy(githubUseOkHttpSniWorkaround = enabled) }
+                },
+            )
             GkSettingItem(
                 title = stringResource(Res.string.github_network_settings_title),
                 subtitle = "${runCatching { li.gkd.app.network.GithubHostRules.parse(store.githubHostRulesJson).size }.getOrDefault(0)} 条 GitHub 规则",
