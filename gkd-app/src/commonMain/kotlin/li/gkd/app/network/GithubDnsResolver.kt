@@ -8,12 +8,17 @@ import java.net.HttpURLConnection
 import java.net.InetAddress
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 object GithubDnsResolver {
+    private const val CACHE_TTL_MILLIS = 60_000L
+    private data class CacheEntry(val expiresAt: Long, val addresses: List<InetAddress>)
+    private val cache = ConcurrentHashMap<String, CacheEntry>()
+
     private const val CLOUDFLARE = "https://cloudflare-dns.com/dns-query?name={name}&type=A"
     private const val GOOGLE = "https://dns.google/resolve?name={name}&type=A"
     private const val ADGUARD = "https://dns.adguard-dns.com/resolve?name={name}&type=A"
@@ -23,6 +28,20 @@ object GithubDnsResolver {
         mode: String,
         customUrl: String,
         customServer: String = "1.1.1.1",
+    ): List<InetAddress> {
+        val key = listOf(host.lowercase(), mode, customUrl, customServer).joinToString("|")
+        val now = System.currentTimeMillis()
+        cache[key]?.takeIf { it.expiresAt > now }?.let { return it.addresses }
+        val result = resolveUncached(host, mode, customUrl, customServer)
+        if (result.isNotEmpty()) cache[key] = CacheEntry(now + CACHE_TTL_MILLIS, result)
+        return result
+    }
+
+    private fun resolveUncached(
+        host: String,
+        mode: String,
+        customUrl: String,
+        customServer: String,
     ): List<InetAddress> {
         if (mode == "system") return InetAddress.getAllByName(host).toList()
         if (mode == "custom-dns") return resolveUdp(host, customServer)
