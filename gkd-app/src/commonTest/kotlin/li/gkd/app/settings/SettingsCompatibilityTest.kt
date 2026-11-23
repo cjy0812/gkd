@@ -79,7 +79,7 @@ class SettingsCompatibilityTest {
         assertEquals(0, defaults.subsAppRuleDisplayMode)
         assertEquals(0, defaults.updateChannel)
         assertEquals(1, defaults.snapshotDisplayMode)
-        assertFalse(defaults.enableGithubNetworkCompatibility)
+        assertFalse(defaults.enableGithubNetworkCompatibility)\n        assertFalse(defaults.githubUseOkHttpSniWorkaround)
         assertEquals(
             "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
             defaults.githubHostRulesUrl,
@@ -96,7 +96,7 @@ class SettingsCompatibilityTest {
     fun networkCompatibilitySettingsRoundTrip() {
         val saved =
             SettingsStore(
-                enableGithubNetworkCompatibility = true,
+                enableGithubNetworkCompatibility = true,\n                githubUseOkHttpSniWorkaround = true,
                 githubHostRulesUrl = "https://example.com/rules.json",
                 githubHostRulesJson = """[[["api.github.com"],"","192.0.2.1"]]""",
                 githubTlsBaselineFingerprint = "AA:BB:CC",
