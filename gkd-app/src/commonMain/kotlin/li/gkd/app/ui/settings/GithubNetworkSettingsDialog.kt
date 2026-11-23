@@ -21,6 +21,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.launch
 import li.gkd.app.network.GithubHostRules
+import li.gkd.app.network.probeGithubCertificate
 import li.gkd.app.network.NetworkClients
 import li.gkd.app.resources.Res
 import li.gkd.app.resources.action_cancel
@@ -35,12 +36,16 @@ import org.jetbrains.compose.resources.stringResource
 fun GithubNetworkSettingsDialog(
     initialUrl: String,
     initialRules: String,
+    initialBaselineFingerprint: String,
     onDismiss: () -> Unit,
-    onSave: (url: String, rulesJson: String) -> Unit,
+    onSave: (url: String, rulesJson: String, baselineFingerprint: String) -> Unit,
 ) {
     var url by remember(initialUrl) { mutableStateOf(initialUrl) }
     var rulesText by remember(initialRules) {
         mutableStateOf(initialRules.ifBlank { "[]" })
+    }
+    var baselineFingerprint by remember(initialBaselineFingerprint) {
+        mutableStateOf(initialBaselineFingerprint)
     }
     var status by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
@@ -77,7 +82,7 @@ fun GithubNetworkSettingsDialog(
                 onClick = {
                     try {
                         val parsed = GithubHostRules.parse(rulesText)
-                        onSave(url.trim(), GithubHostRules.encode(parsed))
+                        onSave(url.trim(), GithubHostRules.encode(parsed), baselineFingerprint)
                     } catch (error: Exception) {
                         status = error.message ?: "规则格式无效"
                     }
@@ -116,6 +121,52 @@ fun GithubNetworkSettingsDialog(
                 },
             ) {
                 Text(if (importing) "导入中…" else "从 URL 导入")
+            }
+            TextButton(
+                enabled = !importing,
+                onClick = {
+                    scope.launch {
+                        importing = true
+                        status = null
+                        try {
+                            val report = probeGithubCertificate("api.github.com", null, null)
+                            baselineFingerprint = report.sha256
+                            status = "已记录基准证书：${report.sha256}\n签发者：${report.issuer}\nSAN：${report.subjectAltNames.joinToString()}"
+                        } catch (error: Exception) {
+                            status = "基准连接失败：${error.message ?: error::class.simpleName}"
+                        } finally {
+                            importing = false
+                        }
+                    }
+                },
+            ) {
+                Text("采集基准证书")
+            }
+            TextButton(
+                enabled = !importing,
+                onClick = {
+                    scope.launch {
+                        importing = true
+                        status = null
+                        try {
+                            val rule = GithubHostRules.find(GithubHostRules.parse(rulesText), "api.github.com")
+                                ?: error("当前规则中没有 api.github.com")
+                            val report = probeGithubCertificate("api.github.com", rule.ip, rule.sni)
+                            val comparison = when {
+                                baselineFingerprint.isBlank() -> "尚未采集基准；本次握手和域名验证成功"
+                                baselineFingerprint == report.sha256 -> "证书指纹与基准相同"
+                                else -> "证书指纹与基准不同（可能是证书轮换或 CDN 差异），不据此绕过验证"
+                            }
+                            status = "${comparison}\nSHA-256：${report.sha256}\n签发者：${report.issuer}\nSAN：${report.subjectAltNames.joinToString()}\n有效期：${report.notBefore} 至 ${report.notAfter}"
+                        } catch (error: Exception) {
+                            status = "规则验证失败：${error.message ?: error::class.simpleName}"
+                        } finally {
+                            importing = false
+                        }
+                    }
+                },
+            ) {
+                Text("验证当前规则")
             }
         },
     )
