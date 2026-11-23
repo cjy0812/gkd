@@ -59,7 +59,7 @@ actual fun createGithubRuleClient(
                 try {
                     chain.proceed(rewritten)
                 } catch (error: Exception) {
-                    NetworkEventLog.error(host, "OkHttp 连接失败：${error::class.simpleName}: ${error.message}")
+                    NetworkEventLog.error(host, "OkHttp 连接失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
                     throw error
                 }
             }
