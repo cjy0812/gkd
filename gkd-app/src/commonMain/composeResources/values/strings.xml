@@ -1266,7 +1266,7 @@
 <string name="network_dns_adguard">AdGuard DoH</string>
 <string name="network_dns_custom">Custom DoH</string>
 <string name="network_dns_custom_help">Use an HTTPS JSON DoH endpoint with {name} and optionally {type} placeholders, for example https://dns.example/dns-query?name={name}&amp;type={type}. Only A records are queried.</string>
-<string name="network_rules_summary">%1$d GitHub rules · URL import and manual editing</string>
+<string name="network_rules_summary">%1$s GitHub rules · URL import and manual editing</string>
 <string name="network_diagnostics_section">Diagnostics</string>
 <string name="network_log_overlay">Floating network log</string>
 <string name="network_log_overlay_description">Show recent network requests in a movable overlay window</string>
