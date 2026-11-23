@@ -71,7 +71,7 @@ actual fun createGithubRuleClient(
                 if (isOriginalHost) {
                     NetworkEventLog.info(
                         host,
-                        "OkHttp URL-host/DNS rewrite：URL host=$targetHost，HTTP Host=$host，SNI=\${rule.sni.ifEmpty { "(empty)" }}",
+                        "OkHttp URL-host/DNS rewrite：URL host=$targetHost，HTTP Host=$host，SNI=${rule.sni.ifEmpty { "(empty)" }}",
                     )
                 }
                 try {
@@ -79,7 +79,7 @@ actual fun createGithubRuleClient(
                 } catch (error: Exception) {
                     NetworkEventLog.error(
                         request.url.host,
-                        "OkHttp 连接失败：\${error::class.simpleName}: \${networkFailureSummary(error) ?: "request failed"}",
+                        "OkHttp 连接失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}",
                     )
                     throw error
                 }
