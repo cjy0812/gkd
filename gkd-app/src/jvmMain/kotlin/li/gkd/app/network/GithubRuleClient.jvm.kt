@@ -56,7 +56,12 @@ actual fun createGithubRuleClient(
                     .header("Host", host)
                     .build()
                 NetworkEventLog.info(host, "OkHttp SNI workaround：URL host=${rule.sni}，HTTP Host=$host")
-                chain.proceed(rewritten)
+                try {
+                    chain.proceed(rewritten)
+                } catch (error: Exception) {
+                    NetworkEventLog.error(host, "OkHttp 连接失败：${error::class.simpleName}: ${error.message}")
+                    throw error
+                }
             }
             .build()
         NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书仍按原始域名校验")
