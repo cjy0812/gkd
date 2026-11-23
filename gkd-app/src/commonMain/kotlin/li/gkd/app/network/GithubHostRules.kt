@@ -20,7 +20,8 @@ data class GithubHostRule(
         when {
             pattern.startsWith("*") -> {
                 val suffix = pattern.removePrefix("*")
-                normalized == suffix || normalized.endsWith(".$suffix")
+                if (suffix.startsWith(".")) normalized.endsWith(suffix)
+                else normalized == suffix || normalized.endsWith(".$suffix")
             }
             else -> normalized == pattern
         }
