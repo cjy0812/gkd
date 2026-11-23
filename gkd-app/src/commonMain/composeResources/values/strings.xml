@@ -1249,4 +1249,26 @@
 <string name="network_event_logs_title">Network logs</string>
 <string name="network_event_logs_clear">Clear</string>
 <string name="network_event_logs_empty">No network logs yet. Enable network compatibility and trigger a GitHub request to see rule matching, DNS fallback and connection details.</string>
+<string name="settings_network">Network</string>
+<string name="network_settings_title">Network</string>
+<string name="network_settings_subtitle">Network compatibility, DNS and diagnostics</string>
+<string name="network_compatibility_section">Network compatibility</string>
+<string name="network_sni_strategy">SNI strategy (choose one)</string>
+<string name="network_sni_native">Rule SNI</string>
+<string name="network_sni_native_description">Use the SNI from the matching rule with the native TLS client</string>
+<string name="network_sni_empty_fallback">Empty SNI fallback</string>
+<string name="network_sni_empty_fallback_description">Only when no rule matches: resolve the original host through selected DNS and connect by IP without SNI</string>
+<string name="network_dns_section">DNS resolver</string>
+<string name="network_dns_title">DNS provider</string>
+<string name="network_dns_system">System DNS</string>
+<string name="network_dns_cloudflare">Cloudflare DoH</string>
+<string name="network_dns_google">Google DoH</string>
+<string name="network_dns_adguard">AdGuard DoH</string>
+<string name="network_dns_custom">Custom DoH</string>
+<string name="network_dns_custom_help">Use an HTTPS JSON DoH endpoint with {name} and optionally {type} placeholders, for example https://dns.example/dns-query?name={name}&amp;type={type}. Only A records are queried.</string>
+<string name="network_rules_summary">%1$d GitHub rules · URL import and manual editing</string>
+<string name="network_diagnostics_section">Diagnostics</string>
+<string name="network_log_overlay">Floating network log</string>
+<string name="network_log_overlay_description">Show recent network requests in a movable overlay window</string>
+<string name="network_log_overlay_notification">Network log overlay is running</string>
 </resources>
