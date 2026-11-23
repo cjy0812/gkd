@@ -57,14 +57,14 @@ private object GithubImageCallFactory : Call.Factory {
         val key = listOf(
             host,
             settings.githubUseOkHttpSniWorkaround,
-            settings.githubEmptySniFallback,
+            (settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround),
             settings.githubDnsMode,
-            settings.githubDnsCustomUrl,
+            settings.githubDnsCustomUrl,\n            settings.githubDnsCustomServer,
             rule?.sni.orEmpty(),
             rule?.ip.orEmpty(),
         ).joinToString("|")
         val client = clients.getOrPut(key) {
-            createClient(host, rule, settings.githubEmptySniFallback, settings.githubDnsMode, settings.githubDnsCustomUrl, settings.githubDnsCustomServer)
+            createClient(host, rule, settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround, settings.githubDnsMode, settings.githubDnsCustomUrl, settings.githubDnsCustomServer)
         }
         return client.newCall(request)
     }
@@ -98,7 +98,7 @@ private object GithubImageCallFactory : Call.Factory {
             when {
                 rewrittenHost != null && requestedHost.equals(rewrittenHost, ignoreCase = true) && addresses.isNotEmpty() -> addresses
                 requestedHost.equals(originalHost, ignoreCase = true) && addresses.isNotEmpty() -> addresses
-                requestedHost.equals(originalHost, ignoreCase = true) -> GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl)
+                requestedHost.equals(originalHost, ignoreCase = true) -> GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl, customDnsServer)
                 else -> Dns.SYSTEM.lookup(requestedHost)
             }
         }
