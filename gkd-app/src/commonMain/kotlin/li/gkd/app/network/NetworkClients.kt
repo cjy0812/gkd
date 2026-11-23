@@ -6,6 +6,9 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.http.Url
 import io.ktor.serialization.kotlinx.json.json
+import java.net.InetAddress
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import li.gkd.app.settings.SettingsRepository
 
@@ -15,18 +18,55 @@ object NetworkClients {
     val client: HttpClient
         get() = sharedClient.value
 
-    /** Select a host-scoped client only for an enabled, imported GitHub rule. */
+    /**
+     * Selects an imported rule when available. With compatibility enabled but no matching rule,
+     * resolve the original GitHub hostname and try the resulting IP with empty SNI.
+     */
     @Synchronized
-    fun clientFor(url: String): HttpClient {
-        val store = SettingsRepository.settings.value
-        if (!store.enableGithubNetworkCompatibility || store.githubHostRulesJson.isBlank()) return client
+    suspend fun clientFor(url: String): HttpClient {
         val requestUrl = runCatching { Url(url) }.getOrNull() ?: return client
         if (requestUrl.protocol.name != "https") return client
         val host = requestUrl.host.lowercase()
-        val rules = runCatching { GithubHostRules.parse(store.githubHostRulesJson) }.getOrNull() ?: return client
-        val rule = GithubHostRules.find(rules, host) ?: return client
-        val key = listOf(host, rule.sni, rule.ip).joinToString("|")
-        return githubClients.getOrPut(key) { createGithubRuleClient(host, rule) }
+        if (!host.isGithubHost()) return client
+        val store = SettingsRepository.settings.value
+        if (!store.enableGithubNetworkCompatibility) return client
+
+        val rules = runCatching { GithubHostRules.parse(store.githubHostRulesJson) }
+            .onFailure { NetworkEventLog.error(host, "规则解析失败：${it.message}") }
+            .getOrDefault(emptyList())
+        val rule = GithubHostRules.find(rules, host)
+        if (rule != null) {
+            NetworkEventLog.info(host, "命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}")
+            val key = listOf(host, rule.sni, rule.ip, rule.resolvedIps.joinToString(","),
+                store.githubUseOkHttpSniWorkaround.toString()).joinToString("|")
+            return githubClients.getOrPut(key) {
+                createGithubRuleClient(host, rule, store.githubUseOkHttpSniWorkaround)
+            }
+        }
+
+        // No rule: resolve the actual host using the system resolver, then pin those addresses.
+        val addresses = try {
+            withContext(Dispatchers.IO) {
+                InetAddress.getAllByName(host).map { it.hostAddress.substringBefore('%') }.distinct()
+            }
+        } catch (error: Exception) {
+            NetworkEventLog.error(host, "系统 DNS 解析失败：${error.message}")
+            return client
+        }
+        val ipv4 = addresses.filter { it.matches(Regex("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")) }
+        if (ipv4.isEmpty()) {
+            NetworkEventLog.warn(host, "DNS 未返回 IPv4，保持系统默认连接")
+            return client
+        }
+        val fallbackRule = GithubHostRule(
+            domains = listOf(host),
+            sni = "",
+            ip = ipv4.first(),
+            resolvedIps = ipv4,
+        )
+        NetworkEventLog.warn(host, "无匹配规则，DNS 兜底：IP=${ipv4.joinToString()}，尝试空 SNI")
+        val key = listOf(host, "auto-empty-sni", ipv4.joinToString(",")).joinToString("|")
+        return githubClients.getOrPut(key) { createGithubRuleClient(host, fallbackRule, false) }
     }
 
     @Synchronized
@@ -51,3 +91,7 @@ object NetworkClients {
             engine { clientCacheSize = 0 }
         }
 }
+
+private fun String.isGithubHost(): Boolean =
+    this == "github.com" || endsWith(".github.com") ||
+        this == "githubusercontent.com" || endsWith(".githubusercontent.com")
