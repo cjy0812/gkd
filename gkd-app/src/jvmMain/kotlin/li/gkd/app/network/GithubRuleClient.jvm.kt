@@ -89,7 +89,7 @@ actual fun createGithubRuleClient(
         engine {
             dnsResolver = { requestedHost ->
                 if (requestedHost.equals(host, ignoreCase = true)) {
-                    (rule.resolvedIps.ifEmpty { listOf(rule.ip) }).map(InetAddress::getByName)
+                    (rule.resolvedIps.ifEmpty { listOf(rule.ip) })
                 } else systemDns(requestedHost)
             }
             https {
