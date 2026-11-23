@@ -1259,7 +1259,7 @@
 <string name="network_dns_adguard">AdGuard DoH</string>
 <string name="network_dns_custom">自定义 DoH</string>
 <string name="network_dns_custom_help">使用 HTTPS JSON DoH 地址，支持 {name} 和可选的 {type} 占位符。例如：https://dns.example/dns-query?name={name}&amp;type={type}。目前只查询 A 记录。</string>
-<string name="network_rules_summary">%1$d 条 GitHub 规则 · 支持 URL 导入和手动编辑</string>
+<string name="network_rules_summary">%1$s 条 GitHub 规则 · 支持 URL 导入和手动编辑</string>
 <string name="network_diagnostics_section">诊断</string>
 <string name="network_log_overlay">悬浮网络日志</string>
 <string name="network_log_overlay_description">在可拖动的悬浮窗中实时观察最近的网络请求</string>
