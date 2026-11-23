@@ -84,13 +84,15 @@ fun AdvancedPage(
             initialUrl = store.githubHostRulesUrl,
             initialRules = store.githubHostRulesJson,
             initialBaselineFingerprint = store.githubTlsBaselineFingerprint,
+            initialBaselineJson = store.githubTlsBaselineJson,
             onDismiss = { showGithubNetworkSettings = false },
-            onSave = { url, rulesJson, baselineFingerprint ->
+            onSave = { url, rulesJson, baselineFingerprint, baselineJson ->
                 SettingsRepository.updateSettings {
                     it.copy(
                         githubHostRulesUrl = url,
                         githubHostRulesJson = rulesJson,
                         githubTlsBaselineFingerprint = baselineFingerprint,
+                        githubTlsBaselineJson = baselineJson,
                     )
                 }
                 showGithubNetworkSettings = false
