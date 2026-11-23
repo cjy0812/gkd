@@ -81,6 +81,8 @@ data class ActionLogRoute(
 
 @Serializable data object NetworkEventLogRoute : AppRoute
 
+@Serializable data object NetworkSettingsRoute : AppRoute
+
 @Serializable data object AboutRoute : AppRoute
 
 @Serializable data object AdvancedPageRoute : AppRoute
