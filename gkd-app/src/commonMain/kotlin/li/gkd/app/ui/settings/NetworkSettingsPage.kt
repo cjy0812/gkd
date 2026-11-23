@@ -199,7 +199,7 @@ fun NetworkSettingsPage() {
                 },
             )
             SniModeOption(
-                selected = store.githubEmptySniFallback,
+                selected = !store.githubUseOkHttpSniWorkaround && store.githubEmptySniFallback,
                 enabled = store.enableGithubNetworkCompatibility,
                 title = stringResource(Res.string.network_sni_empty_fallback),
                 subtitle = stringResource(Res.string.network_sni_empty_fallback_description),
