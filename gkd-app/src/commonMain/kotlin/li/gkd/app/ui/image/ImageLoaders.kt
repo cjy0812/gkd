@@ -64,7 +64,7 @@ private object GithubImageCallFactory : Call.Factory {
             rule?.ip.orEmpty(),
         ).joinToString("|")
         val client = clients.getOrPut(key) {
-            createClient(host, rule, settings.githubEmptySniFallback, settings.githubDnsMode, settings.githubDnsCustomUrl)
+            createClient(host, rule, settings.githubEmptySniFallback, settings.githubDnsMode, settings.githubDnsCustomUrl, settings.githubDnsCustomServer)
         }
         return client.newCall(request)
     }
@@ -77,7 +77,7 @@ private object GithubImageCallFactory : Call.Factory {
         customDnsUrl: String,
     ): OkHttpClient {
         val fallbackIps = if (rule == null && emptySniFallback) {
-            runCatching { GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl) }
+            runCatching { GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl, customDnsServer) }
                 .getOrElse {
                     NetworkEventLog.error(originalHost, "图片 DNS 兜底失败：${it.message}")
                     emptyList()
