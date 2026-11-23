@@ -113,7 +113,9 @@ object GithubHostRules {
             domain == "github.com" ||
                 domain.endsWith(".github.com") ||
                 domain == "githubusercontent.com" ||
-                domain.endsWith(".githubusercontent.com")
+                domain.endsWith(".githubusercontent.com") ||
+                domain == "githubassets.com" ||
+                domain.endsWith(".githubassets.com")
         return isGithubDomain && domain.isValidHostname()
     }
 
