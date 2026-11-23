@@ -1271,4 +1271,7 @@
 <string name="network_log_overlay">Floating network log</string>
 <string name="network_log_overlay_description">Show recent network requests in a movable overlay window</string>
 <string name="network_log_overlay_notification">Network log overlay is running</string>
+<string name="network_dns_custom_doh">Custom DoH</string>
+<string name="network_dns_custom_server">Custom DNS server (UDP)</string>
+<string name="network_dns_custom_server_help">Enter an IPv4 DNS server address. DNS requests use UDP port 53. Some networks block direct DNS; use a DoH preset or custom DoH endpoint if needed.</string>
 </resources>
