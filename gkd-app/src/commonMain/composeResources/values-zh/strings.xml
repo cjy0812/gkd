@@ -1264,4 +1264,7 @@
 <string name="network_log_overlay">悬浮网络日志</string>
 <string name="network_log_overlay_description">在可拖动的悬浮窗中实时观察最近的网络请求</string>
 <string name="network_log_overlay_notification">网络日志悬浮窗正在运行</string>
+<string name="network_dns_custom_doh">自定义 DoH</string>
+<string name="network_dns_custom_server">自定义 DNS 服务器（UDP）</string>
+<string name="network_dns_custom_server_help">填写 IPv4 DNS 服务器地址，使用 UDP 53 端口查询。部分网络会屏蔽传统 DNS，可改用预设或自定义 DoH。</string>
 </resources>
