@@ -1242,4 +1242,8 @@
     <string name="github_network_importing">Importing…</string>
     <string name="github_network_capture_baseline">Capture certificate baseline</string>
     <string name="github_network_verify_rule">Verify current rule</string>
+<string name="github_okhttp_sni_workaround">OkHttp SNI workaround</string>
+<string name="github_okhttp_sni_workaround_description">Rewrite the TLS URL host to the configured SNI and resolve it to the rule IP; the original HTTP Host and certificate hostname are still checked. Only applies to non-empty SNI rules.</string>
+<string name="network_event_logs">Network logs</string>
+<string name="network_event_logs_description">View GitHub rule selection, DNS fallback and connection strategy</string>
 </resources>
