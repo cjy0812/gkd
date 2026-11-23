@@ -111,4 +111,4 @@ object NetworkClients {
 
 private fun String.isGithubHost(): Boolean =
     this == "github.com" || endsWith(".github.com") ||
-        this == "githubusercontent.com" || endsWith(".githubusercontent.com")
+        this == "githubusercontent.com" || endsWith(".githubusercontent.com") ||\n        this == "githubassets.com" || endsWith(".githubassets.com")
