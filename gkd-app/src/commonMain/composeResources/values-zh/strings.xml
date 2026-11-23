@@ -1239,4 +1239,7 @@
 <string name="github_okhttp_sni_workaround_description">将 TLS URL 主机名改为规则中的 SNI，并通过 DNS 映射到规则 IP；HTTP Host 和原始域名证书校验仍保留。仅对非空 SNI 规则生效。</string>
 <string name="network_event_logs">网络日志</string>
 <string name="network_event_logs_description">查看 GitHub 规则命中、DNS 兜底及连接方式</string>
+<string name="network_event_logs_title">网络日志</string>
+<string name="network_event_logs_clear">清空</string>
+<string name="network_event_logs_empty">暂无网络日志。开启网络兼容性并触发 GitHub 请求后，这里会显示规则命中、DNS 兜底及连接详情</string>
 </resources>
