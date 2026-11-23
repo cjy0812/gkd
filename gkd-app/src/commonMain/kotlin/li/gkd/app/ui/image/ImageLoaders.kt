@@ -14,6 +14,7 @@ import li.gkd.app.network.GithubDnsResolver
 import li.gkd.app.network.GithubHostRule
 import li.gkd.app.network.GithubHostRules
 import li.gkd.app.network.NetworkEventLog
+import li.gkd.app.network.networkFailureSummary
 import li.gkd.app.settings.SettingsRepository
 import okhttp3.Call
 import okhttp3.Dns
@@ -47,7 +48,7 @@ private object GithubImageCallFactory : Call.Factory {
 
     override fun newCall(request: Request): Call {
         val host = request.url.host.lowercase()
-        if (!host.isGithubHost()) return defaultClient.newCall(request)
+        if (!host.isGithubHost()) return loggingClient.newCall(request)
         val settings = SettingsRepository.settings.value
         if (!settings.enableGithubNetworkCompatibility) return loggingClient.newCall(request)
         val rules = runCatching { GithubHostRules.parse(settings.githubHostRulesJson) }
@@ -134,9 +135,21 @@ private object GithubImageCallFactory : Call.Factory {
                     NetworkEventLog.request(originalHost, original.method, original.url.toString(), status = response.code)
                     response
                 } catch (error: Exception) {
-                    NetworkEventLog.request(originalHost, original.method, original.url.toString(), error = error.javaClass.simpleName)
+                    NetworkEventLog.request(originalHost, original.method, original.url.toString(), error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
                     throw error
                 }
+            }
+            .addNetworkInterceptor { chain ->
+                val request = chain.request()
+                val adjusted = if (
+                    rewrittenHost != null &&
+                    request.url.host.equals(rewrittenHost, ignoreCase = true)
+                ) {
+                    request.newBuilder().header("Host", originalHost).build()
+                } else {
+                    request.newBuilder().removeHeader("Host").build()
+                }
+                chain.proceed(adjusted)
             }
             .build()
     }
