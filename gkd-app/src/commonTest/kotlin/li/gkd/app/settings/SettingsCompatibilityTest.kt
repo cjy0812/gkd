@@ -35,7 +35,10 @@ class SettingsCompatibilityTest {
 
     @Test
     fun appListsAcceptWindowsLineEndingsInFilesAndBackups() {
-        val text = "android\r\n# System\r\ncom.example.app\r\n"
+        val text = "android\r
+# System\r
+com.example.app\r
+"
         val expected = setOf("android", "com.example.app")
         assertEquals(expected, SettingsAppIds.decode(text))
         assertEquals(expected, SettingsAppIds.decodeBackup(text))
@@ -79,7 +82,8 @@ class SettingsCompatibilityTest {
         assertEquals(0, defaults.subsAppRuleDisplayMode)
         assertEquals(0, defaults.updateChannel)
         assertEquals(1, defaults.snapshotDisplayMode)
-        assertFalse(defaults.enableGithubNetworkCompatibility)\n        assertFalse(defaults.githubUseOkHttpSniWorkaround)
+        assertFalse(defaults.enableGithubNetworkCompatibility)
+        assertFalse(defaults.githubUseOkHttpSniWorkaround)
         assertEquals(
             "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
             defaults.githubHostRulesUrl,
@@ -96,7 +100,8 @@ class SettingsCompatibilityTest {
     fun networkCompatibilitySettingsRoundTrip() {
         val saved =
             SettingsStore(
-                enableGithubNetworkCompatibility = true,\n                githubUseOkHttpSniWorkaround = true,
+                enableGithubNetworkCompatibility = true,
+                githubUseOkHttpSniWorkaround = true,
                 githubHostRulesUrl = "https://example.com/rules.json",
                 githubHostRulesJson = """[[["api.github.com"],"","192.0.2.1"]]""",
                 githubTlsBaselineFingerprint = "AA:BB:CC",
