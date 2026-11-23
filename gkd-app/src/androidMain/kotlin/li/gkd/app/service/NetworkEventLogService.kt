@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import li.gkd.app.network.NetworkEvent
 import li.gkd.app.network.NetworkEventLog
 import li.gkd.app.notif.NotificationCatalog
@@ -78,7 +77,7 @@ class NetworkEventLogService : OverlayWindowService(positionKey = "network-log")
                         )
                     }
                     LazyColumn {
-                        items(events.asReversed().take(12), key = { it.id }) { event ->
+                        items(events.asReversed().take(6), key = { it.id }) { event ->
                             NetworkLogOverlayRow(event)
                         }
                     }
