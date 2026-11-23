@@ -82,8 +82,8 @@ private object GithubImageCallFactory : Call.Factory {
         val fallbackIps = if (rule == null && emptySniFallback) {
             runCatching { GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl, customDnsServer) }
                 .getOrElse {
-                    NetworkEventLog.error(originalHost, "图片 DNS 兜底失败：${it.message}")
-                    emptyList()
+                    NetworkEventLog.warn(originalHost, "图片 DNS 提供商失败，回退系统 DNS：${networkFailureSummary(it) ?: "resolution failed"}")
+                    runCatching { InetAddress.getAllByName(originalHost).toList() }.getOrDefault(emptyList())
                 }
         } else emptyList()
         val addresses = when {
@@ -101,7 +101,12 @@ private object GithubImageCallFactory : Call.Factory {
             when {
                 rewrittenHost != null && requestedHost.equals(rewrittenHost, ignoreCase = true) && addresses.isNotEmpty() -> addresses
                 requestedHost.equals(originalHost, ignoreCase = true) && addresses.isNotEmpty() -> addresses
-                requestedHost.equals(originalHost, ignoreCase = true) -> GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl, customDnsServer)
+                requestedHost.equals(originalHost, ignoreCase = true) -> runCatching {
+                    GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl, customDnsServer)
+                }.getOrElse {
+                    NetworkEventLog.warn(originalHost, "DNS 提供商失败，回退系统 DNS：${networkFailureSummary(it) ?: "resolution failed"}")
+                    Dns.SYSTEM.lookup(requestedHost)
+                }
                 else -> Dns.SYSTEM.lookup(requestedHost)
             }
         }
