@@ -216,7 +216,12 @@ fun AdvancedPage(
                 title = stringResource(Res.string.external_calls_title),
                 onClick = { mainVm.navigator.navigate(ExternalCallsRoute) },
             )
-            GkSettingItem(\n                title = stringResource(Res.string.network_event_logs),\n                subtitle = stringResource(Res.string.network_event_logs_description),\n                onClick = { mainVm.navigator.navigate(NetworkEventLogRoute) },\n            )\n            AdvancedSectionTitle(stringResource(Res.string.github_network_compatibility))
+            GkSettingItem(
+                title = stringResource(Res.string.network_event_logs),
+                subtitle = stringResource(Res.string.network_event_logs_description),
+                onClick = { mainVm.navigator.navigate(NetworkEventLogRoute) },
+            )
+            AdvancedSectionTitle(stringResource(Res.string.github_network_compatibility))
             GkTextSwitch(
                 title = stringResource(Res.string.github_network_compatibility),
                 subtitle = stringResource(Res.string.github_network_compatibility_description),
