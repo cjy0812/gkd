@@ -63,6 +63,7 @@ data class SettingsStore(
     val enableGithubNetworkCompatibility: Boolean = false,
     val githubHostRulesUrl: String = "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
     val githubHostRulesJson: String = "",
+    val githubTlsBaselineFingerprint: String = "",
 ) {
     val useA11y
         get() = automatorMode == AutomatorMode.A11y.value
