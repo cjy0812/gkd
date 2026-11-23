@@ -78,29 +78,6 @@ fun AdvancedPage(
     val eventServiceRunning: Boolean = eventMonitorRunning()
 
     val trackServiceRunning: Boolean = trackServiceRunning()
-    var showGithubNetworkSettings by remember { mutableStateOf(false) }
-
-    if (showGithubNetworkSettings) {
-        GithubNetworkSettingsDialog(
-            initialUrl = store.githubHostRulesUrl,
-            initialRules = store.githubHostRulesJson,
-            initialBaselineFingerprint = store.githubTlsBaselineFingerprint,
-            initialBaselineJson = store.githubTlsBaselineJson,
-            onDismiss = { showGithubNetworkSettings = false },
-            onSave = { url, rulesJson, baselineFingerprint, baselineJson ->
-                SettingsRepository.updateSettings {
-                    it.copy(
-                        githubHostRulesUrl = url,
-                        githubHostRulesJson = rulesJson,
-                        githubTlsBaselineFingerprint = baselineFingerprint,
-                        githubTlsBaselineJson = baselineJson,
-                    )
-                }
-                showGithubNetworkSettings = false
-            },
-        )
-    }
-
     val showTrackNotice by vm.showTrackNotice.collectAsStateWithLifecycle()
     if (showTrackNotice)
         GkAlertDialog(
