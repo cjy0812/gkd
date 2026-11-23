@@ -49,6 +49,16 @@ class GithubHostRulesTest {
     }
 
     @Test
+    fun acceptsGithubAssetsCdnRules() {
+        val rules = GithubHostRules.parse(
+            """[[["github.githubassets.com"],"github.com","192.0.2.4"],[["*githubassets.com"],"github.com","192.0.2.5"]]""",
+        )
+        assertEquals("192.0.2.4", GithubHostRules.find(rules, "github.githubassets.com")?.ip)
+        assertEquals("192.0.2.5", GithubHostRules.find(rules, "static.githubassets.com")?.ip)
+        assertNull(GithubHostRules.find(rules, "notgithubassets.com"))
+    }
+
+    @Test
     fun doesNotAcceptWildcardOutsideTheLeadingPosition() {
         assertFailsWith<IllegalArgumentException> {
             GithubHostRules.parse("""[[["api.*.github.com"],"","192.0.2.1"]]""")
