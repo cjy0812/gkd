@@ -83,6 +83,7 @@ class SettingsCompatibilityTest {
         assertEquals("https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json", defaults.githubHostRulesUrl)
         assertEquals("", defaults.githubTlsBaselineFingerprint)
         assertEquals("", defaults.githubTlsBaselineJson)
+        assertEquals("", defaults.githubTlsBaselineJson)
         val inherited = Json.decodeFromString<SettingsStore>("""{"appGroupType":7}""")
         assertEquals(7, inherited.serviceScopeAppGroupType)
         assertEquals(7, inherited.subsExcludeAppGroupType)
