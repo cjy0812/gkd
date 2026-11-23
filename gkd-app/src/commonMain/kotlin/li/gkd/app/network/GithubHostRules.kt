@@ -3,7 +3,6 @@ package li.gkd.app.network
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -108,9 +107,9 @@ object GithubHostRules {
         if (value.contains('*') && !value.startsWith("*")) return false
         val suffix = value.removePrefix("*")
         return suffix == "github.com" ||
-            suffix.startsWith(".github.com") ||
+            suffix.endsWith(".github.com") ||
             suffix == "githubusercontent.com" ||
-            suffix.startsWith(".githubusercontent.com")
+            suffix.endsWith(".githubusercontent.com")
     }
 
     private fun String.isValidIpv4(): Boolean {
