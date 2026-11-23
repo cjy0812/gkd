@@ -20,7 +20,9 @@ object NetworkClients {
     fun clientFor(url: String): HttpClient {
         val store = SettingsRepository.settings.value
         if (!store.enableGithubNetworkCompatibility || store.githubHostRulesJson.isBlank()) return client
-        val host = runCatching { Url(url).host.lowercase() }.getOrNull() ?: return client
+        val requestUrl = runCatching { Url(url) }.getOrNull() ?: return client
+        if (requestUrl.protocol.name != "https") return client
+        val host = requestUrl.host.lowercase()
         val rules = runCatching { GithubHostRules.parse(store.githubHostRulesJson) }.getOrNull() ?: return client
         val rule = GithubHostRules.find(rules, host) ?: return client
         val key = listOf(host, rule.sni, rule.ip).joinToString("|")
