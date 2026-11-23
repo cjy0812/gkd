@@ -14,6 +14,8 @@ data class GithubHostRule(
     val domains: List<String>,
     val sni: String,
     val ip: String,
+    /** Additional IPs discovered by the system resolver for automatic no-rule fallback. */
+    val resolvedIps: List<String> = emptyList(),
 ) {
     fun matches(host: String): Boolean = domains.any { pattern ->
         val normalized = host.trimEnd('.').lowercase()
