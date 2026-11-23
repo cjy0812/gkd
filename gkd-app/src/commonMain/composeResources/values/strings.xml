@@ -1255,7 +1255,7 @@
 <string name="network_compatibility_section">Network compatibility</string>
 <string name="network_sni_strategy">SNI strategy (choose one)</string>
 <string name="network_sni_native">Rule SNI</string>
-<string name="network_sni_native_description">Use the SNI from the matching rule with the native TLS client</string>
+<string name="network_sni_native_description">Use the rule SNI with Ktor CIO. CIO also verifies the configured SNI name; if the certificate only matches the original host, choose the OkHttp compatibility mode.</string>
 <string name="network_sni_empty_fallback">Empty SNI fallback</string>
 <string name="network_sni_empty_fallback_description">Only when no rule matches: resolve the original host through selected DNS and connect by IP without SNI</string>
 <string name="network_dns_section">DNS resolver</string>
