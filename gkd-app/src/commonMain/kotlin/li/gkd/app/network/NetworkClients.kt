@@ -7,9 +7,6 @@ import li.gkd.app.network.installNetworkEventLogging
 import io.ktor.http.ContentType
 import io.ktor.http.Url
 import io.ktor.serialization.kotlinx.json.json
-import java.net.InetAddress
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import li.gkd.app.settings.SettingsRepository
 
@@ -53,13 +50,17 @@ object NetworkClients {
             }
         }
 
-        // No rule: resolve the actual host using the system resolver, then pin those addresses.
+        if (!store.githubEmptySniFallback) {
+            NetworkEventLog.info(host, "没有匹配规则，使用默认 TLS/SNI")
+            return client
+        }
+
+        // Explicit empty-SNI fallback: resolve the original host through the selected DNS provider.
         val addresses = try {
-            withContext(Dispatchers.IO) {
-                InetAddress.getAllByName(host).map { it.hostAddress.substringBefore('%') }.distinct()
-            }
+            GithubDnsResolver.resolve(host, store.githubDnsMode, store.githubDnsCustomUrl)
+                .map { it.hostAddress.substringBefore('%') }.distinct()
         } catch (error: Exception) {
-            NetworkEventLog.error(host, "系统 DNS 解析失败：${error.message}")
+            NetworkEventLog.error(host, "DNS 解析失败：${error.message}")
             return client
         }
         val ipv4 = addresses.filter { it.matches(Regex("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}")) }
