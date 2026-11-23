@@ -12,10 +12,10 @@ import java.io.File
 
 object UpdateClient {
     suspend fun fetch(url: String): NewVersion =
-        NetworkClients.client.get(url) { expectSuccess = true }.body()
+        NetworkClients.clientFor(url).get(url) { expectSuccess = true }.body()
 
     suspend fun download(url: String, file: File, size: Long, progress: (Float) -> Unit) {
-        NetworkClients.client
+        NetworkClients.clientFor(url)
             .prepareGet(url) {
                 expectSuccess = true
                 onDownload { received, _ -> if (size > 0) progress(received.toFloat() / size) }
