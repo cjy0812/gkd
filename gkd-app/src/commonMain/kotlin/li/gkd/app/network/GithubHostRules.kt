@@ -106,11 +106,13 @@ object GithubHostRules {
     private fun isGithubDomainPattern(value: String): Boolean {
         if (value.count { it == '*' } > 1) return false
         if (value.contains('*') && !value.startsWith("*")) return false
-        val suffix = value.removePrefix("*")
-        return suffix == "github.com" ||
-            suffix.endsWith(".github.com") ||
-            suffix == "githubusercontent.com" ||
-            suffix.endsWith(".githubusercontent.com")
+        val domain = value.removePrefix("*").removePrefix(".")
+        val isGithubDomain =
+            domain == "github.com" ||
+                domain.endsWith(".github.com") ||
+                domain == "githubusercontent.com" ||
+                domain.endsWith(".githubusercontent.com")
+        return isGithubDomain && domain.isValidHostname()
     }
 
     private fun String.isValidIpv4(): Boolean {
