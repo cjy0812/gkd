@@ -1,5 +1,6 @@
 package li.gkd.app.network
 
+import android.os.Build
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.security.MessageDigest
@@ -17,6 +18,9 @@ actual suspend fun probeGithubCertificate(
     ip: String?,
     sni: String?,
 ): GithubCertificateReport = withContext(Dispatchers.IO) {
+    check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        "采集证书需要 Android 7.0 或更高版本"
+    }
     val rawSocket = Socket()
     rawSocket.connect(InetSocketAddress(ip ?: host, 443), 10_000)
     rawSocket.soTimeout = 10_000
