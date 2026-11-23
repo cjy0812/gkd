@@ -30,13 +30,24 @@ object NetworkClients {
         val store = SettingsRepository.settings.value
         if (!store.enableGithubNetworkCompatibility) return client
 
-        val rules = if (store.githubHostRulesJson.isBlank()) emptyList() else\n            runCatching { GithubHostRules.parse(store.githubHostRulesJson) }\n                .onFailure { NetworkEventLog.error(host, "规则解析失败：${it.message}") }\n                .getOrDefault(emptyList())
+        val rules =
+            if (store.githubHostRulesJson.isBlank()) emptyList()
+            else {
+                runCatching { GithubHostRules.parse(store.githubHostRulesJson) }
+                    .onFailure { NetworkEventLog.error(host, "规则解析失败：${it.message}") }
+                    .getOrDefault(emptyList())
+            }
         val rule = GithubHostRules.find(rules, host)
         if (rule != null) {
             NetworkEventLog.info(host, "命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}")
-            val key = listOf(host, rule.sni, rule.ip, rule.resolvedIps.joinToString(","),
-                store.githubUseOkHttpSniWorkaround.toString()).joinToString("|")
-            return githubClients.getOrPut(key) {
+            val key = listOf(
+                host,
+                rule.sni,
+                rule.ip,
+                rule.resolvedIps.joinToString(","),
+                store.githubUseOkHttpSniWorkaround.toString(),
+            ).joinToString("|")
+            return cachedClient(key) {
                 createGithubRuleClient(host, rule, store.githubUseOkHttpSniWorkaround)
             }
         }
@@ -66,10 +77,16 @@ object NetworkClients {
         return cachedClient(key) { createGithubRuleClient(host, fallbackRule, false) }
     }
 
-    private fun cachedClient(key: String, create: () -> HttpClient): HttpClient =\n        synchronized(githubClients) { githubClients.getOrPut(key, create) }\n\n    @Synchronized\n    fun close() {
+    private fun cachedClient(key: String, create: () -> HttpClient): HttpClient =
+        synchronized(githubClients) { githubClients.getOrPut(key, create) }
+
+    @Synchronized
+    fun close() {
         if (sharedClient.isInitialized()) sharedClient.value.close()
-        githubClients.values.forEach(HttpClient::close)
-        githubClients.clear()
+        synchronized(githubClients) {
+            githubClients.values.forEach(HttpClient::close)
+            githubClients.clear()
+        }
     }
 
     private fun create() =
