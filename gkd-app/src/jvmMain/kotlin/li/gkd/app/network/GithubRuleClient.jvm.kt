@@ -24,8 +24,9 @@ actual fun createGithubRuleClient(
     rule: GithubHostRule,
     useOkHttpSniWorkaround: Boolean,
 ): HttpClient {
-    if (useOkHttpSniWorkaround && rule.sni.isNotEmpty()) {
+    if (rule.sni.isEmpty() || useOkHttpSniWorkaround) {
         val addresses = rule.resolvedIps.ifEmpty { listOf(rule.ip) }
+        val targetHost = rule.sni.ifEmpty { rule.ip }
         val systemTrustManager =
             TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).run {
                 init(null as KeyStore?)
@@ -35,7 +36,7 @@ actual fun createGithubRuleClient(
             .followRedirects(false)
             .followSslRedirects(false)
             .dns(Dns { requestedHost ->
-                if (requestedHost.equals(rule.sni, ignoreCase = true)) {
+                if (requestedHost.equals(targetHost, ignoreCase = true)) {
                     addresses.map(InetAddress::getByName)
                 } else {
                     Dns.SYSTEM.lookup(requestedHost)
@@ -50,12 +51,12 @@ actual fun createGithubRuleClient(
             }
             .addInterceptor { chain ->
                 val request = chain.request()
-                val rewrittenUrl = request.url.newBuilder().host(rule.sni).build()
+                val rewrittenUrl = request.url.newBuilder().host(targetHost).build()
                 val rewritten = request.newBuilder()
                     .url(rewrittenUrl)
                     .header("Host", host)
                     .build()
-                NetworkEventLog.info(host, "OkHttp SNI workaround：URL host=${rule.sni}，HTTP Host=$host")
+                NetworkEventLog.info(host, "OkHttp TLS host rewrite：URL host=$targetHost，HTTP Host=$host，SNI=${rule.sni.ifEmpty { "(empty)" }}")
                 try {
                     chain.proceed(rewritten)
                 } catch (error: Exception) {
@@ -64,7 +65,7 @@ actual fun createGithubRuleClient(
                 }
             }
             .build()
-        NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书仍按原始域名校验")
+        NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书链与原始域名校验仍开启")
         return HttpClient(OkHttp) {
             installNetworkEventLogging()
             followRedirects = false
