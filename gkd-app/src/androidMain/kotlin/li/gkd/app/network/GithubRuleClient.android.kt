@@ -3,16 +3,67 @@ package li.gkd.app.network
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.cio.JvmDnsResolver
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
+import java.net.InetAddress
 import java.security.KeyStore
 import java.security.cert.X509Certificate
+import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 import kotlinx.serialization.json.Json
+import okhttp3.Dns
+import okhttp3.OkHttpClient
 
-actual fun createGithubRuleClient(host: String, rule: GithubHostRule): HttpClient {
+actual fun createGithubRuleClient(
+    host: String,
+    rule: GithubHostRule,
+    useOkHttpSniWorkaround: Boolean,
+): HttpClient {
+    if (useOkHttpSniWorkaround && rule.sni.isNotEmpty()) {
+        val addresses = rule.resolvedIps.ifEmpty { listOf(rule.ip) }
+        val systemTrustManager =
+            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).run {
+                init(null as KeyStore?)
+                trustManagers.filterIsInstance<X509TrustManager>().first()
+            }
+        val okhttp = OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .dns(Dns { requestedHost ->
+                if (requestedHost.equals(rule.sni, ignoreCase = true)) {
+                    addresses.map(InetAddress::getByName)
+                } else {
+                    Dns.SYSTEM.lookup(requestedHost)
+                }
+            })
+            .sslSocketFactory(HttpsURLConnection.getDefaultSSLSocketFactory() as javax.net.ssl.SSLSocketFactory, systemTrustManager)
+            .hostnameVerifier { _, session ->
+                HttpsURLConnection.getDefaultHostnameVerifier().verify(host, session)
+            }
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val rewrittenUrl = request.url.newBuilder().host(rule.sni).build()
+                val rewritten = request.newBuilder()
+                    .url(rewrittenUrl)
+                    .header("Host", host)
+                    .build()
+                NetworkEventLog.info(host, "OkHttp SNI workaround：URL host=${rule.sni}，HTTP Host=$host")
+                chain.proceed(rewritten)
+            }
+            .build()
+        NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书仍按原始域名校验")
+        return HttpClient(OkHttp) {
+            followRedirects = false
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
+            }
+            engine { config { preconfigured = okhttp } }
+        }
+    }
+
     val systemTrustManager =
         TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).run {
             init(null as KeyStore?)
@@ -23,40 +74,25 @@ actual fun createGithubRuleClient(host: String, rule: GithubHostRule): HttpClien
             override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {
                 systemTrustManager.checkClientTrusted(chain, authType)
             }
-
             override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
                 systemTrustManager.checkServerTrusted(chain, authType)
-                verifyOriginalHost(host, chain.firstOrNull()
-                    ?: throw IllegalStateException("服务器未提供证书"))
+                verifyOriginalHost(host, chain.firstOrNull() ?: throw IllegalStateException("服务器未提供证书"))
             }
-
-            override fun getAcceptedIssuers(): Array<X509Certificate> =
-                systemTrustManager.acceptedIssuers
+            override fun getAcceptedIssuers(): Array<X509Certificate> = systemTrustManager.acceptedIssuers
         }
     val systemDns = JvmDnsResolver()
     return HttpClient(CIO) {
-        // A redirect changes the HTTP origin. Do not reuse this host-pinned TLS engine for it.
         followRedirects = false
         install(ContentNegotiation) {
-            json(
-                Json {
-                    ignoreUnknownKeys = true
-                    explicitNulls = false
-                    encodeDefaults = true
-                },
-                ContentType.Any,
-            )
+            json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
         }
         engine {
             dnsResolver = { requestedHost ->
                 if (requestedHost.equals(host, ignoreCase = true)) {
-                    listOf(rule.ip)
-                } else {
-                    systemDns(requestedHost)
-                }
+                    (rule.resolvedIps.ifEmpty { listOf(rule.ip) }).map(InetAddress::getByName)
+                } else systemDns(requestedHost)
             }
             https {
-                // null omits the SNI extension; the trust manager still checks the original URL host SAN.
                 serverName = rule.sni.takeIf(String::isNotEmpty)
                 trustManager = hostCheckingTrustManager
             }
@@ -73,19 +109,11 @@ private fun verifyOriginalHost(host: String, certificate: X509Certificate) {
         if (entry.size >= 2 && (entry[0] as? Number)?.toInt() == 7) entry[1]?.toString() else null
     }
     val isIpAddress = host.all { it.isDigit() || it == '.' } && host.contains('.')
-    val valid = if (isIpAddress) {
-        ipNames.any { it == host }
-    } else {
-        dnsNames.any { certificateName ->
-            certificateName.equals(host, ignoreCase = true) ||
-                (certificateName.startsWith("*.") &&
-                    host.endsWith(certificateName.substring(1), ignoreCase = true) &&
-                    host.dropLast(certificateName.length - 1).let {
-                        it.isNotEmpty() && '.' !in it
-                    })
-        }
+    val valid = if (isIpAddress) ipNames.any { it == host } else dnsNames.any { certificateName ->
+        certificateName.equals(host, ignoreCase = true) ||
+            (certificateName.startsWith("*.") &&
+                host.endsWith(certificateName.substring(1), ignoreCase = true) &&
+                host.dropLast(certificateName.length - 1).let { it.isNotEmpty() && '.' !in it })
     }
-    check(valid) {
-        "TLS 证书不包含原始请求域名 $host 的 Subject Alternative Name"
-    }
+    check(valid) { "TLS 证书不包含原始请求域名 $host 的 Subject Alternative Name" }
 }
