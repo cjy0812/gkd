@@ -7,6 +7,8 @@ import li.gkd.app.network.installNetworkEventLogging
 import io.ktor.http.ContentType
 import io.ktor.http.Url
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import li.gkd.app.settings.SettingsRepository
 
@@ -52,7 +54,7 @@ object NetworkClients {
 
         // Resolve with the selected provider even when empty-SNI fallback is disabled.
         val addresses = try {
-            GithubDnsResolver.resolve(host, store.githubDnsMode, store.githubDnsCustomUrl)
+            withContext(Dispatchers.IO) { GithubDnsResolver.resolve(host, store.githubDnsMode, store.githubDnsCustomUrl) }
                 .map { it.hostAddress.substringBefore('%') }.distinct()
         } catch (error: Exception) {
             NetworkEventLog.error(host, "DNS 解析失败：${error.message}")
