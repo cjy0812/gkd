@@ -45,7 +45,9 @@ fun NetworkSettingsPage() {
     var showRules by remember { mutableStateOf(false) }
     var showDns by remember { mutableStateOf(false) }
     var showCustomDns by remember { mutableStateOf(false) }
+    var showCustomDnsServer by remember { mutableStateOf(false) }
     var customDns by remember(store.githubDnsCustomUrl) { mutableStateOf(store.githubDnsCustomUrl) }
+    var customDnsServer by remember(store.githubDnsCustomServer) { mutableStateOf(store.githubDnsCustomServer) }
 
     if (showRules) {
         GithubNetworkSettingsDialog(
@@ -78,7 +80,8 @@ fun NetworkSettingsPage() {
                 "cloudflare" to Res.string.network_dns_cloudflare,
                 "google" to Res.string.network_dns_google,
                 "adguard" to Res.string.network_dns_adguard,
-                "custom" to Res.string.network_dns_custom,
+                "custom-dns" to Res.string.network_dns_custom_server,
+                "custom-doh" to Res.string.network_dns_custom_doh,
             ).forEach { (mode, label) ->
                 TextButton(
                     onClick = {
@@ -125,7 +128,7 @@ fun NetworkSettingsPage() {
                             val value = customDns.trim()
                             if (value.startsWith("https://", ignoreCase = true) && value.contains("{name}")) {
                                 SettingsRepository.updateSettings {
-                                    it.copy(githubDnsMode = "custom", githubDnsCustomUrl = value)
+                                    it.copy(githubDnsMode = "custom-doh", githubDnsCustomUrl = value)
                                 }
                                 showCustomDns = false
                             }
@@ -222,7 +225,7 @@ fun NetworkSettingsPage() {
                         "cloudflare" -> Res.string.network_dns_cloudflare
                         "google" -> Res.string.network_dns_google
                         "adguard" -> Res.string.network_dns_adguard
-                        "custom" -> Res.string.network_dns_custom
+                        "custom", "custom-doh" -> Res.string.network_dns_custom_doh\n                        "custom-dns" -> Res.string.network_dns_custom_server
                         else -> Res.string.network_dns_system
                     },
                 ),
