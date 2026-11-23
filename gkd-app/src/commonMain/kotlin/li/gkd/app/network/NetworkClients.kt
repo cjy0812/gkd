@@ -63,7 +63,7 @@ object NetworkClients {
             NetworkEventLog.warn(host, "所选 DNS 未返回 IPv4，保持系统默认连接")
             return client
         }
-        val useEmptySni = store.githubEmptySniFallback
+        val useEmptySni = store.githubEmptySniFallback && !store.githubUseOkHttpSniWorkaround
         val fallbackRule = GithubHostRule(
             domains = listOf(host),
             sni = if (useEmptySni) "" else host,
