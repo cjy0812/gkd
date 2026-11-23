@@ -129,7 +129,7 @@ fun GithubNetworkSettingsDialog(
                             require(url.startsWith("https://", ignoreCase = true)) {
                                 "规则 URL 必须使用 HTTPS"
                             }
-                            val source = NetworkClients.client.get(url.trim()).bodyAsText()
+                            val source = NetworkClients.clientFor(url.trim()).get(url.trim()).bodyAsText()
                             val parsed = GithubHostRules.parse(source)
                             rulesText = GithubHostRules.encode(parsed)
                             status = "导入成功：已提取 ${parsed.size} 条 GitHub 规则，可继续手动编辑"
