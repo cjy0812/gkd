@@ -35,10 +35,7 @@ class SettingsCompatibilityTest {
 
     @Test
     fun appListsAcceptWindowsLineEndingsInFilesAndBackups() {
-        val text = "android\r
-# System\r
-com.example.app\r
-"
+        val text = "android\r\n# System\r\ncom.example.app\r\n"
         val expected = setOf("android", "com.example.app")
         assertEquals(expected, SettingsAppIds.decode(text))
         assertEquals(expected, SettingsAppIds.decodeBackup(text))
