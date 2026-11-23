@@ -56,7 +56,7 @@ object GithubHostRules {
                     ?: error("第 ${index + 1} 条规则包含空域名或非字符串域名")
             }
             val githubDomains = domains.filter { domain ->
-                if (domain.contains("github.com") || domain.contains("githubusercontent.com")) {
+                if (domain.contains("github.com") || domain.contains("githubusercontent.com") || domain.contains("githubassets.com")) {
                     require(isGithubDomainPattern(domain)) {
                         "第 ${index + 1} 条规则包含不支持的 GitHub 域名模式：$domain"
                     }
