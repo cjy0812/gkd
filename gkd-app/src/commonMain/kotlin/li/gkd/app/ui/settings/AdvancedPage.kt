@@ -17,6 +17,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -74,6 +78,21 @@ fun AdvancedPage(
     val eventServiceRunning: Boolean = eventMonitorRunning()
 
     val trackServiceRunning: Boolean = trackServiceRunning()
+    var showGithubNetworkSettings by remember { mutableStateOf(false) }
+
+    if (showGithubNetworkSettings) {
+        GithubNetworkSettingsDialog(
+            initialUrl = store.githubHostRulesUrl,
+            initialRules = store.githubHostRulesJson,
+            onDismiss = { showGithubNetworkSettings = false },
+            onSave = { url, rulesJson ->
+                SettingsRepository.updateSettings {
+                    it.copy(githubHostRulesUrl = url, githubHostRulesJson = rulesJson)
+                }
+                showGithubNetworkSettings = false
+            },
+        )
+    }
 
     val showTrackNotice by vm.showTrackNotice.collectAsStateWithLifecycle()
     if (showTrackNotice)
@@ -189,6 +208,20 @@ fun AdvancedPage(
             GkSettingItem(
                 title = stringResource(Res.string.external_calls_title),
                 onClick = { mainVm.navigator.navigate(ExternalCallsRoute) },
+            )
+            AdvancedSectionTitle(stringResource(Res.string.github_network_compatibility))
+            GkTextSwitch(
+                title = stringResource(Res.string.github_network_compatibility),
+                subtitle = stringResource(Res.string.github_network_compatibility_description),
+                checked = store.enableGithubNetworkCompatibility,
+                onCheckedChange = { enabled ->
+                    SettingsRepository.updateSettings { it.copy(enableGithubNetworkCompatibility = enabled) }
+                },
+            )
+            GkSettingItem(
+                title = stringResource(Res.string.github_network_settings_title),
+                subtitle = "${runCatching { li.gkd.app.network.GithubHostRules.parse(store.githubHostRulesJson).size }.getOrDefault(0)} 条 GitHub 规则",
+                onClick = { showGithubNetworkSettings = true },
             )
             AdvancedSectionTitle(stringResource(Res.string.advanced_upload_share))
             GkSettingItem(
