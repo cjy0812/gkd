@@ -50,15 +50,26 @@ object GithubHostRules {
                     ?.takeIf(String::isNotEmpty)
                     ?: error("第 ${index + 1} 条规则包含空域名")
             }
-            val sni = row[1].jsonPrimitive.contentOrNull
-                ?: error("第 ${index + 1} 条规则的 SNI 必须是字符串")
-            val ip = row[2].jsonPrimitive.contentOrNull
-                ?: error("第 ${index + 1} 条规则的 IP 必须是字符串")
-
-            val githubDomains = domains.filter(::isGithubDomainPattern)
+            val githubDomains = domains.filter { domain ->
+                if (domain.contains("github.com") || domain.contains("githubusercontent.com")) {
+                    require(isGithubDomainPattern(domain)) {
+                        "第 ${index + 1} 条规则包含不支持的 GitHub 域名模式：$domain"
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
             if (githubDomains.isEmpty()) {
                 null
             } else {
+                val sniValue = row[1].jsonPrimitive
+                val ipValue = row[2].jsonPrimitive
+                require(sniValue.isString && ipValue.isString) {
+                    "第 ${index + 1} 条规则的 SNI 和 IP 必须是字符串"
+                }
+                val sni = sniValue.content
+                val ip = ipValue.content
                 require(ip.isValidIpv4()) {
                     "第 ${index + 1} 条 GitHub 规则的 IP 无效：$ip"
                 }
@@ -90,12 +101,13 @@ object GithubHostRules {
         rules.firstOrNull { it.matches(host) }
 
     private fun isGithubDomainPattern(value: String): Boolean {
-        val suffix = value.removePrefix("*")
+        if (value.count { it == '*' } > 1) return false
         if (value.contains('*') && !value.startsWith("*")) return false
+        val suffix = value.removePrefix("*")
         return suffix == "github.com" ||
-            suffix.endsWith(".github.com") ||
+            suffix.startsWith(".github.com") ||
             suffix == "githubusercontent.com" ||
-            suffix.endsWith(".githubusercontent.com")
+            suffix.startsWith(".githubusercontent.com")
     }
 
     private fun String.isValidIpv4(): Boolean {
