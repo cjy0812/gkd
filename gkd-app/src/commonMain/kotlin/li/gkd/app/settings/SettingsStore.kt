@@ -61,6 +61,7 @@ data class SettingsStore(
     val showDisabledRule: Boolean = true,
     val snapshotDisplayMode: Int = SnapshotDisplayMode.ByTime.value,
     val enableGithubNetworkCompatibility: Boolean = false,
+    val githubUseOkHttpSniWorkaround: Boolean = false,
     val githubHostRulesUrl: String = "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
     val githubHostRulesJson: String = "",
     val githubTlsBaselineFingerprint: String = "",
