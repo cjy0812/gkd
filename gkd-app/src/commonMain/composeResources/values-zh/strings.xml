@@ -1248,7 +1248,7 @@
 <string name="network_compatibility_section">网络兼容性</string>
 <string name="network_sni_strategy">SNI 策略（互斥选择）</string>
 <string name="network_sni_native">规则 SNI</string>
-<string name="network_sni_native_description">使用匹配规则中的 SNI，由原生 TLS 客户端建立连接</string>
+<string name="network_sni_native_description">使用规则中的 SNI，由 Ktor CIO 建立连接。CIO 还会校验配置的 SNI 域名；若证书只匹配原始域名，请改用 OkHttp 兼容模式。</string>
 <string name="network_sni_empty_fallback">空 SNI 兜底</string>
 <string name="network_sni_empty_fallback_description">仅在没有匹配规则时，使用所选 DNS 解析原始域名并通过 IP 发起无 SNI 连接</string>
 <string name="network_dns_section">DNS 解析</string>
