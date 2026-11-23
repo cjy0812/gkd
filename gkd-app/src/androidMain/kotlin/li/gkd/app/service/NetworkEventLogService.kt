@@ -43,6 +43,10 @@ class NetworkEventLogService : OverlayWindowService(positionKey = "network-log")
         minimized = false
     }
 
+    override fun onLongClickView() {
+        if (!minimized) minimized = true
+    }
+
     @Composable
     override fun ComposeContent() {
         val events by NetworkEventLog.events.collectAsStateWithLifecycle()
@@ -54,7 +58,6 @@ class NetworkEventLogService : OverlayWindowService(positionKey = "network-log")
                     contentDescription = stringResource(Res.string.event_log_window_restore),
                     modifier = Modifier.clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { minimized = false }
                         .padding(10.dp),
                 )
             } else {
@@ -64,10 +67,16 @@ class NetworkEventLogService : OverlayWindowService(positionKey = "network-log")
                         .padding(6.dp)
                         .heightIn(max = 320.dp),
                 ) {
-                    ClosableTitle(
-                        title = stringResource(Res.string.network_log_overlay),
-                        onMinimizeRequest = { minimized = true },
-                    )
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 3.dp)) {
+                        GkIcon(imageVector = DragPan)
+                        Text(stringResource(Res.string.network_log_overlay), style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            stringResource(Res.string.network_log_overlay_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     LazyColumn {
                         items(events.asReversed().take(12), key = { it.id }) { event ->
                             NetworkLogOverlayRow(event)
