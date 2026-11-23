@@ -83,10 +83,15 @@ fun AdvancedPage(
         GithubNetworkSettingsDialog(
             initialUrl = store.githubHostRulesUrl,
             initialRules = store.githubHostRulesJson,
+            initialBaselineFingerprint = store.githubTlsBaselineFingerprint,
             onDismiss = { showGithubNetworkSettings = false },
-            onSave = { url, rulesJson ->
+            onSave = { url, rulesJson, baselineFingerprint ->
                 SettingsRepository.updateSettings {
-                    it.copy(githubHostRulesUrl = url, githubHostRulesJson = rulesJson)
+                    it.copy(
+                        githubHostRulesUrl = url,
+                        githubHostRulesJson = rulesJson,
+                        githubTlsBaselineFingerprint = baselineFingerprint,
+                    )
                 }
                 showGithubNetworkSettings = false
             },
