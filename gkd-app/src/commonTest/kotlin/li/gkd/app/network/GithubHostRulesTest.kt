@@ -31,6 +31,7 @@ class GithubHostRulesTest {
         assertEquals("192.0.2.1", GithubHostRules.find(rules, "api.github.com")?.ip)
         assertEquals("192.0.2.2", GithubHostRules.find(rules, "raw.github.com")?.ip)
         assertNull(GithubHostRules.find(rules, "github.example.com"))
+        assertNull(GithubHostRules.find(rules, "notgithub.com"))
     }
 
     @Test
