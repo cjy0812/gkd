@@ -49,7 +49,7 @@ private object GithubImageCallFactory : Call.Factory {
         val host = request.url.host.lowercase()
         if (!host.isGithubHost()) return defaultClient.newCall(request)
         val settings = SettingsRepository.settings.value
-        if (!settings.enableGithubNetworkCompatibility) return defaultClient.newCall(request)
+        if (!settings.enableGithubNetworkCompatibility) return loggingClient.newCall(request)
         val rules = runCatching { GithubHostRules.parse(settings.githubHostRulesJson) }
             .onFailure { NetworkEventLog.error(host, "图片规则解析失败：${it.message}") }
             .getOrDefault(emptyList())
@@ -145,6 +145,21 @@ private object GithubImageCallFactory : Call.Factory {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    private val loggingClient = defaultClient.newBuilder()
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val host = request.url.host
+            try {
+                val response = chain.proceed(request)
+                NetworkEventLog.request(host, request.method, request.url.toString(), status = response.code)
+                response
+            } catch (error: Exception) {
+                NetworkEventLog.request(host, request.method, request.url.toString(), error = error.javaClass.simpleName)
+                throw error
+            }
+        }
         .build()
 }
 
