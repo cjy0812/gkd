@@ -7,4 +7,8 @@ import io.ktor.client.HttpClient
  *
  * The engine is scoped to one host because Ktor CIO's SNI is engine-wide.
  */
-expect fun createGithubRuleClient(\n    host: String,\n    rule: GithubHostRule,\n    useOkHttpSniWorkaround: Boolean,\n): HttpClient
+expect fun createGithubRuleClient(
+    host: String,
+    rule: GithubHostRule,
+    useOkHttpSniWorkaround: Boolean,
+): HttpClient
