@@ -19,7 +19,10 @@ data class GithubHostRule(
     fun matches(host: String): Boolean = domains.any { pattern ->
         val normalized = host.trimEnd('.').lowercase()
         when {
-            pattern.startsWith("*") -> normalized.endsWith(pattern.removePrefix("*"))
+            pattern.startsWith("*") -> {
+                val suffix = pattern.removePrefix("*")
+                normalized == suffix || normalized.endsWith(".$suffix")
+            }
             else -> normalized == pattern
         }
     }
@@ -46,9 +49,9 @@ object GithubHostRules {
                 "第 ${index + 1} 条规则的 domains 必须是数组"
             }
             val domains = domainsElement.map { element ->
-                element.jsonPrimitive.contentOrNull?.trim()?.lowercase()
+                element.jsonPrimitive.takeIf { it.isString }?.content?.trim()?.lowercase()
                     ?.takeIf(String::isNotEmpty)
-                    ?: error("第 ${index + 1} 条规则包含空域名")
+                    ?: error("第 ${index + 1} 条规则包含空域名或非字符串域名")
             }
             val githubDomains = domains.filter { domain ->
                 if (domain.contains("github.com") || domain.contains("githubusercontent.com")) {
