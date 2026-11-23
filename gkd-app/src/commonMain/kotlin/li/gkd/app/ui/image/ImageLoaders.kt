@@ -59,7 +59,8 @@ private object GithubImageCallFactory : Call.Factory {
             settings.githubUseOkHttpSniWorkaround,
             (settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround),
             settings.githubDnsMode,
-            settings.githubDnsCustomUrl,\n            settings.githubDnsCustomServer,
+            settings.githubDnsCustomUrl,
+            settings.githubDnsCustomServer,
             rule?.sni.orEmpty(),
             rule?.ip.orEmpty(),
         ).joinToString("|")
@@ -75,6 +76,7 @@ private object GithubImageCallFactory : Call.Factory {
         emptySniFallback: Boolean,
         dnsMode: String,
         customDnsUrl: String,
+        customDnsServer: String,
     ): OkHttpClient {
         val fallbackIps = if (rule == null && emptySniFallback) {
             runCatching { GithubDnsResolver.resolve(originalHost, dnsMode, customDnsUrl, customDnsServer) }
