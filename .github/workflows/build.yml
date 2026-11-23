@@ -26,10 +26,25 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
 
+      - name: check release keystore availability
+        id: signing
+        shell: bash
+        env:
+          GKD_STORE_FILE_BASE64: ${{ secrets.GKD_STORE_FILE_BASE64 }}
+        run: |
+          if [[ -n "$GKD_STORE_FILE_BASE64" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: write gkd keystore
+        if: steps.signing.outputs.available == 'true'
         run: echo ${{ secrets.GKD_STORE_FILE_BASE64 }} | base64 --decode > ${{ github.workspace }}/gkd.jks
 
-      - run: ./gradlew :gkd-android:assembleGkdRelease
+      - name: build signed release
+        if: steps.signing.outputs.available == 'true'
+        run: ./gradlew :gkd-android:assembleGkdRelease
         env:
           GKD_GITHUB_COOKIE: ${{ secrets.GKD_GITHUB_COOKIE }}
           GKD_SERVER_TOKEN: ${{ secrets.GKD_SERVER_TOKEN }}
@@ -40,11 +55,13 @@ jobs:
           GKD_RENAME_PACKAGE_FLAG: "1"
 
       - uses: actions/upload-artifact@v7
+        if: steps.signing.outputs.available == 'true'
         with:
           archive: false
           path: gkd-android/build/outputs/apk/gkd/release/*.apk
 
       - name: derive outputs artifact name from APK
+        if: steps.signing.outputs.available == 'true'
         id: outputs-artifact
         shell: bash
         run: |
@@ -54,6 +71,7 @@ jobs:
           echo "name=${apk_name}.outputs" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
+        if: steps.signing.outputs.available == 'true'
         with:
           name: ${{ steps.outputs-artifact.outputs.name }}
           path: gkd-android/build/outputs
