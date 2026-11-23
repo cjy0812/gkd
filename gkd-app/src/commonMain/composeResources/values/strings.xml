@@ -1237,7 +1237,7 @@
     <string name="github_network_rules_url">Rules source URL (HTTPS)</string>
     <string name="github_network_rules_json">GitHub rules JSON (editable)</string>
     <string name="github_network_compatibility">Network compatibility</string>
-    <string name="github_network_compatibility_description">Apply imported host mapping rules to GitHub requests. System certificate validation remains enabled.</string>
+    <string name="github_network_compatibility_description">Apply host mapping only to matched GitHub requests. System certificate-chain and original-host validation remain enabled; the baseline fingerprint is diagnostic only.</string>
     <string name="github_network_import_from_url">Import from URL</string>
     <string name="github_network_importing">Importing…</string>
     <string name="github_network_capture_baseline">Capture certificate baseline</string>
