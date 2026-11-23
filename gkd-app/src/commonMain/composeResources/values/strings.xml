@@ -1274,4 +1274,5 @@
 <string name="network_dns_custom_doh">Custom DoH</string>
 <string name="network_dns_custom_server">Custom DNS server (UDP)</string>
 <string name="network_dns_custom_server_help">Enter an IPv4 DNS server address. DNS requests use UDP port 53. Some networks block direct DNS; use a DoH preset or custom DoH endpoint if needed.</string>
+<string name="network_log_overlay_hint">Long-press to minimize · drag to move</string>
 </resources>
