@@ -214,7 +214,6 @@ object NotificationCatalog {
             key = ForegroundNotificationKey.NetworkLog,
             titleResource = Res.string.network_log_overlay,
             textResource = Res.string.network_log_overlay_notification,
-            uri = "gkd://page/network",
             stopService = li.gkd.app.service.NetworkEventLogService::class,
         )
 
