@@ -3,6 +3,7 @@ package li.gkd.app.network
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import li.gkd.app.network.installNetworkEventLogging
 import io.ktor.http.ContentType
 import io.ktor.http.Url
 import io.ktor.serialization.kotlinx.json.json
@@ -91,6 +92,7 @@ object NetworkClients {
 
     private fun create() =
         HttpClient(OkHttp) {
+            installNetworkEventLogging()
             install(ContentNegotiation) {
                 json(
                     Json {
