@@ -105,6 +105,7 @@ object GithubDnsResolver {
             check((u16(bytes, 2) and 0x8000) != 0 && (u16(bytes, 2) and 0x000F) == 0) {
                 "DNS 服务器返回错误状态"
             }
+            check((u16(bytes, 2) and 0x0200) == 0) { "DNS UDP 响应被截断" }
             val questionCount = u16(bytes, 4)
             val answerCount = u16(bytes, 6)
             var offset = 12
@@ -127,7 +128,7 @@ object GithubDnsResolver {
                     offset += dataLength
                 }
             }.distinct()
-            NetworkEventLog.request("dns:custom-dns", "UDP", "$server:53/$host", status = 0)
+            NetworkEventLog.request("dns:custom-dns", "UDP", "$server:53/$host")
             return addresses
         }
     }
