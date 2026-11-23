@@ -32,6 +32,11 @@ class GithubHostRulesTest {
         assertEquals("192.0.2.2", GithubHostRules.find(rules, "raw.github.com")?.ip)
         assertNull(GithubHostRules.find(rules, "github.example.com"))
         assertNull(GithubHostRules.find(rules, "notgithub.com"))
+        val dottedWildcard = GithubHostRules.parse(
+            """[[["*.github.com"],"github.com","192.0.2.3"]]""",
+        )
+        assertEquals("192.0.2.3", GithubHostRules.find(dottedWildcard, "api.github.com")?.ip)
+        assertNull(GithubHostRules.find(dottedWildcard, "github.com"))
     }
 
     @Test
