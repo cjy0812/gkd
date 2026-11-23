@@ -78,8 +78,9 @@ private fun verifyOriginalHost(host: String, certificate: X509Certificate) {
             certificateName.equals(host, ignoreCase = true) ||
                 (certificateName.startsWith("*.") &&
                     host.endsWith(certificateName.substring(1), ignoreCase = true) &&
-                    host.substringBefore('.').isNotEmpty() &&
-                    !host.substringBefore('.').contains('.'))
+                    host.dropLast(certificateName.length - 1).let {
+                        it.isNotEmpty() && '.' !in it
+                    })
         }
     }
     check(valid) {
