@@ -1,5 +1,7 @@
 package li.gkd.app.network
 
+import io.ktor.client.HttpClientConfig
+import io.ktor.client.plugins.HttpResponseValidator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import li.gkd.app.logging.LogUtils
@@ -32,5 +34,22 @@ object NetworkEventLog {
             mutableEvents.value = (mutableEvents.value + event).takeLast(MAX_EVENTS)
         }
         LogUtils.i("[$level] $host: $message", tag = "Network")
+    }
+}
+
+fun HttpClientConfig<*>.installNetworkEventLogging() {
+    HttpResponseValidator {
+        validateResponse { response ->
+            NetworkEventLog.info(
+                response.call.request.url.host,
+                "HTTP ${response.status.value}",
+            )
+        }
+        handleResponseExceptionWithRequest { cause, request ->
+            NetworkEventLog.error(
+                request.url.host,
+                "${cause::class.simpleName}: ${cause.message.orEmpty().take(240)}",
+            )
+        }
     }
 }
