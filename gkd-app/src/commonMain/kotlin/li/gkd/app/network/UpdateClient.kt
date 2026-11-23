@@ -23,7 +23,7 @@ object UpdateClient {
                 NetworkEventLog.info(host, "更新请求成功")
             }
         } catch (error: Exception) {
-            NetworkEventLog.error(host, "更新请求失败：${error::class.simpleName}: ${error.message}")
+            NetworkEventLog.error(host, "更新请求失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
             throw error
         }
     }
