@@ -49,7 +49,7 @@ fun NetworkEventLogPage() {
                     Text("事件 ID：${event.id}")
                 }
             },
-            confirmButton = { TextButton(onClick = { selectedEvent = null }) { Text(stringResource(Res.string.action_confirm)) } },
+            confirmButton = { TextButton(onClick = { selectedEvent = null }) { Text(stringResource(Res.string.action_cancel)) } },
         )
     }
     GkScaffold(
