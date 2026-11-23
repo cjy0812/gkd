@@ -3,7 +3,6 @@ package li.gkd.app.service
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -104,9 +103,9 @@ class NetworkEventLogService : OverlayWindowService(positionKey = "network-log")
 @Composable
 private fun NetworkLogOverlayRow(event: NetworkEvent) {
     Column(
-        modifier = Modifier.fillMaxWidth().clickable { }.padding(vertical = 3.dp, horizontal = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp, horizontal = 4.dp),
     ) {
-        Row {
+        androidx.compose.foundation.layout.Row {
             Text(
                 text = event.level,
                 color = when (event.level) {
