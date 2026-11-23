@@ -20,6 +20,9 @@ import androidx.compose.ui.unit.dp
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import li.gkd.app.network.GithubCertificateReport
 import li.gkd.app.network.GithubHostRules
 import li.gkd.app.network.probeGithubCertificate
 import li.gkd.app.network.NetworkClients
@@ -41,8 +44,9 @@ fun GithubNetworkSettingsDialog(
     initialUrl: String,
     initialRules: String,
     initialBaselineFingerprint: String,
+    initialBaselineJson: String,
     onDismiss: () -> Unit,
-    onSave: (url: String, rulesJson: String, baselineFingerprint: String) -> Unit,
+    onSave: (url: String, rulesJson: String, baselineFingerprint: String, baselineJson: String) -> Unit,
 ) {
     var url by remember(initialUrl) { mutableStateOf(initialUrl) }
     var rulesText by remember(initialRules) {
@@ -51,6 +55,7 @@ fun GithubNetworkSettingsDialog(
     var baselineFingerprint by remember(initialBaselineFingerprint) {
         mutableStateOf(initialBaselineFingerprint)
     }
+    var baselineJson by remember(initialBaselineJson) { mutableStateOf(initialBaselineJson) }
     var status by remember { mutableStateOf<String?>(null) }
     var importing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -86,7 +91,7 @@ fun GithubNetworkSettingsDialog(
                 onClick = {
                     try {
                         val parsed = GithubHostRules.parse(rulesText)
-                        onSave(url.trim(), GithubHostRules.encode(parsed), baselineFingerprint)
+                        onSave(url.trim(), GithubHostRules.encode(parsed), baselineFingerprint, baselineJson)
                     } catch (error: Exception) {
                         status = error.message ?: "规则格式无效"
                     }
@@ -135,6 +140,7 @@ fun GithubNetworkSettingsDialog(
                         try {
                             val report = probeGithubCertificate("api.github.com", null, null)
                             baselineFingerprint = report.sha256
+                            baselineJson = Json.encodeToString(report)
                             status = "已记录基准证书：${report.sha256}\n签发者：${report.issuer}\nSAN：${report.subjectAltNames.joinToString()}"
                         } catch (error: Exception) {
                             status = "基准连接失败：${error.message ?: error::class.simpleName}"
