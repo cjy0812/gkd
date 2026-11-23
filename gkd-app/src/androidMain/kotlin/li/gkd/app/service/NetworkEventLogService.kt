@@ -89,7 +89,7 @@ class NetworkEventLogService : OverlayWindowService(positionKey = "network-log")
     }
 
     companion object {
-        val isRunning: StateFlow<Boolean> = MutableStateFlow(false)
+        val isRunning = MutableStateFlow(false)
 
         fun start() {
             if (!PermissionStates.drawOverlays.checkOrToast()) return
