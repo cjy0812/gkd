@@ -357,7 +357,15 @@
             </intent-filter>
         </service>
 
-        <service\n            android:name="li.gkd.app.service.NetworkEventLogService"\n            android:exported="false"\n            android:foregroundServiceType="specialUse">\n            <property\n                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n                android:value="Display a movable network request diagnostic log for the user" />\n        </service>\n        <service android:name="li.gkd.app.service.MatchDiagnosticService"
+        <service
+            android:name="li.gkd.app.service.NetworkEventLogService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Display a movable network request diagnostic log for the user" />
+        </service>
+        <service android:name="li.gkd.app.service.MatchDiagnosticService"
             android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User initiated matching diagnostics with notification stop control" />
