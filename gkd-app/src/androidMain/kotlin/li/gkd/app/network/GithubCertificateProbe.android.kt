@@ -18,6 +18,7 @@ actual suspend fun probeGithubCertificate(
     ip: String?,
     sni: String?,
 ): GithubCertificateReport = withContext(Dispatchers.IO) {
+    NetworkEventLog.info(host, "开始 TLS 证书探测：IP=${ip ?: "system DNS"}，SNI=${sni ?: host}")
     check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         "采集证书需要 Android 7.0 或更高版本"
     }
@@ -65,7 +66,12 @@ actual suspend fun probeGithubCertificate(
             subjectAltNames = sans,
             notBefore = certificate.notBefore.toString(),
             notAfter = certificate.notAfter.toString(),
-        )
+        ).also { report ->
+            NetworkEventLog.info(host, "证书探测成功：SHA-256=${report.sha256}，SAN=${report.subjectAltNames.joinToString()}")
+        }
+    } catch (error: Exception) {
+        NetworkEventLog.error(host, "证书探测失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
+        throw error
     } finally {
         socket.close()
     }
