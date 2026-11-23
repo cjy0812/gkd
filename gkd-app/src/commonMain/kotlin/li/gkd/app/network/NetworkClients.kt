@@ -19,8 +19,8 @@ object NetworkClients {
         get() = sharedClient.value
 
     /**
-     * Selects an imported rule when available. With compatibility enabled but no matching rule,
-     * resolve the original GitHub hostname and try the resulting IP with empty SNI.
+     * Selects an imported rule when available. Without a matching rule, the selected DNS provider
+     * resolves the original host; empty SNI is used only when that SNI strategy is selected.
      */
     suspend fun clientFor(url: String): HttpClient {
         val requestUrl = runCatching { Url(url) }.getOrNull() ?: return client
