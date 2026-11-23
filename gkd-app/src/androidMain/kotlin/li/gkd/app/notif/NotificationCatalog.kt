@@ -29,7 +29,8 @@ enum class ForegroundNotificationKey(
     Activity(id = 106),
     Event(id = 107),
     Track(id = 108),
-    MatchDiagnostic(id = 109),\n    NetworkLog(id = 112),
+    MatchDiagnostic(id = 109),
+    NetworkLog(id = 112),
 }
 
 enum class PostedNotificationKey(
@@ -208,7 +209,16 @@ object NotificationCatalog {
             stopService = EventService::class,
         )
 
-    fun networkLog() =\n        ForegroundNotification(\n            key = ForegroundNotificationKey.NetworkLog,\n            titleResource = Res.string.network_log_overlay,\n            textResource = Res.string.network_log_overlay_notification,\n            uri = "gkd://page/network",\n            stopService = li.gkd.app.service.NetworkEventLogService::class,\n        )\n\n    fun track() =
+    fun networkLog() =
+        ForegroundNotification(
+            key = ForegroundNotificationKey.NetworkLog,
+            titleResource = Res.string.network_log_overlay,
+            textResource = Res.string.network_log_overlay_notification,
+            uri = "gkd://page/network",
+            stopService = li.gkd.app.service.NetworkEventLogService::class,
+        )
+
+    fun track() =
         ForegroundNotification(
             key = ForegroundNotificationKey.Track,
             titleResource = Res.string.track_overlay_enabled,
