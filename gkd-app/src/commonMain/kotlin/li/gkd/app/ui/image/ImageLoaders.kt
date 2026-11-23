@@ -169,7 +169,7 @@ private object GithubImageCallFactory : Call.Factory {
                 NetworkEventLog.request(host, request.method, request.url.toString(), status = response.code)
                 response
             } catch (error: Exception) {
-                NetworkEventLog.request(host, request.method, request.url.toString(), error = error.javaClass.simpleName)
+                NetworkEventLog.request(host, request.method, request.url.toString(), error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
                 throw error
             }
         }
