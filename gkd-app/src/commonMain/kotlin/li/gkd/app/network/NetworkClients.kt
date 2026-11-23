@@ -22,7 +22,6 @@ object NetworkClients {
      * Selects an imported rule when available. With compatibility enabled but no matching rule,
      * resolve the original GitHub hostname and try the resulting IP with empty SNI.
      */
-    @Synchronized
     suspend fun clientFor(url: String): HttpClient {
         val requestUrl = runCatching { Url(url) }.getOrNull() ?: return client
         if (requestUrl.protocol.name != "https") return client
@@ -31,9 +30,7 @@ object NetworkClients {
         val store = SettingsRepository.settings.value
         if (!store.enableGithubNetworkCompatibility) return client
 
-        val rules = runCatching { GithubHostRules.parse(store.githubHostRulesJson) }
-            .onFailure { NetworkEventLog.error(host, "规则解析失败：${it.message}") }
-            .getOrDefault(emptyList())
+        val rules = if (store.githubHostRulesJson.isBlank()) emptyList() else\n            runCatching { GithubHostRules.parse(store.githubHostRulesJson) }\n                .onFailure { NetworkEventLog.error(host, "规则解析失败：${it.message}") }\n                .getOrDefault(emptyList())
         val rule = GithubHostRules.find(rules, host)
         if (rule != null) {
             NetworkEventLog.info(host, "命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}")
@@ -66,11 +63,10 @@ object NetworkClients {
         )
         NetworkEventLog.warn(host, "无匹配规则，DNS 兜底：IP=${ipv4.joinToString()}，尝试空 SNI")
         val key = listOf(host, "auto-empty-sni", ipv4.joinToString(",")).joinToString("|")
-        return githubClients.getOrPut(key) { createGithubRuleClient(host, fallbackRule, false) }
+        return cachedClient(key) { createGithubRuleClient(host, fallbackRule, false) }
     }
 
-    @Synchronized
-    fun close() {
+    private fun cachedClient(key: String, create: () -> HttpClient): HttpClient =\n        synchronized(githubClients) { githubClients.getOrPut(key, create) }\n\n    @Synchronized\n    fun close() {
         if (sharedClient.isInitialized()) sharedClient.value.close()
         githubClients.values.forEach(HttpClient::close)
         githubClients.clear()
