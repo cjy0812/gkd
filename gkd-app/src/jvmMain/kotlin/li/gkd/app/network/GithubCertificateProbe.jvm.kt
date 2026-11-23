@@ -17,6 +17,7 @@ actual suspend fun probeGithubCertificate(
     ip: String?,
     sni: String?,
 ): GithubCertificateReport = withContext(Dispatchers.IO) {
+    NetworkEventLog.info(host, "开始 TLS 证书探测：IP=${ip ?: "system DNS"}，SNI=${sni ?: host}")
     val rawSocket = Socket()
     rawSocket.connect(InetSocketAddress(ip ?: host, 443), 10_000)
     rawSocket.soTimeout = 10_000
@@ -61,7 +62,12 @@ actual suspend fun probeGithubCertificate(
             subjectAltNames = sans,
             notBefore = certificate.notBefore.toString(),
             notAfter = certificate.notAfter.toString(),
-        )
+        ).also { report ->
+            NetworkEventLog.info(host, "证书探测成功：SHA-256=${report.sha256}，SAN=${report.subjectAltNames.joinToString()}")
+        }
+    } catch (error: Exception) {
+        NetworkEventLog.error(host, "证书探测失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
+        throw error
     } finally {
         socket.close()
     }
