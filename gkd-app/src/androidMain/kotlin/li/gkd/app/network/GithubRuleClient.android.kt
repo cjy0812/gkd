@@ -41,7 +41,10 @@ actual fun createGithubRuleClient(
                     Dns.SYSTEM.lookup(requestedHost)
                 }
             })
-            .sslSocketFactory(\n                SSLContext.getInstance("TLS").apply { init(null, arrayOf(systemTrustManager), null) }.socketFactory,\n                systemTrustManager,\n            )
+            .sslSocketFactory(
+                SSLContext.getInstance("TLS").apply { init(null, arrayOf(systemTrustManager), null) }.socketFactory,
+                systemTrustManager,
+            )
             .hostnameVerifier { _, session ->
                 HttpsURLConnection.getDefaultHostnameVerifier().verify(host, session)
             }
