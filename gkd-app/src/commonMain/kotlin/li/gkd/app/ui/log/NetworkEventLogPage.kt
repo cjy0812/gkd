@@ -93,8 +93,8 @@ fun NetworkEventLogPage() {
 }
 
 @Composable
-private fun NetworkEventRow(event: NetworkEvent) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+private fun NetworkEventRow(event: NetworkEvent, onClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
             text = "${event.time.format("yyyy-MM-dd HH:mm:ss.SSS")}  ${event.level}",
             style = MaterialTheme.typography.labelSmall,
