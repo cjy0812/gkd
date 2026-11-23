@@ -42,15 +42,15 @@ fun NetworkEventLogPage() {
     selectedEvent?.let { event ->
         li.gkd.app.ui.component.GkAlertDialog(
             onDismissRequest = { selectedEvent = null },
-            title = { Text("\${event.source} · \${event.level} · \${event.host}") },
+            title = { Text("${event.source} · ${event.level} · ${event.host}") },
             text = {
                 Column {
                     Text(event.time.format("yyyy-MM-dd HH:mm:ss.SSS"))
-                    if (event.method.isNotEmpty()) Text("\${event.method} \${event.requestUrl}")
+                    if (event.method.isNotEmpty()) Text("${event.method} ${event.requestUrl}")
                     event.statusCode?.let { Text("HTTP 状态：$it") }
                     event.redirectTarget?.let { Text("重定向目标：$it") }
                     Text(event.detail)
-                    Text("事件 ID：\${event.id}")
+                    Text("事件 ID：${event.id}")
                 }
             },
             confirmButton = {
@@ -112,7 +112,7 @@ fun NetworkEventLogPage() {
 private fun NetworkEventRow(event: NetworkEvent, onClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
-            text = "\${event.time.format("yyyy-MM-dd HH:mm:ss.SSS")}  \${event.source} · \${event.level}",
+            text = "${event.time.format("yyyy-MM-dd HH:mm:ss.SSS")}  ${event.source} · ${event.level}",
             style = MaterialTheme.typography.labelSmall,
             color = when (event.level) {
                 "ERROR" -> MaterialTheme.colorScheme.error
