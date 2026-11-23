@@ -65,6 +65,7 @@ data class SettingsStore(
     val githubEmptySniFallback: Boolean = false,
     val githubDnsMode: String = "system",
     val githubDnsCustomUrl: String = "https://cloudflare-dns.com/dns-query?name={name}&type={type}",
+    val githubDnsCustomServer: String = "1.1.1.1",
     val githubHostRulesUrl: String = "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
     val githubHostRulesJson: String = "",
     val githubTlsBaselineFingerprint: String = "",
