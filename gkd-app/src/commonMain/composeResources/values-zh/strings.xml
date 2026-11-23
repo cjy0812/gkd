@@ -1235,4 +1235,8 @@
     <string name="github_network_importing">导入中…</string>
     <string name="github_network_capture_baseline">采集基准证书</string>
     <string name="github_network_verify_rule">验证当前规则</string>
+<string name="github_okhttp_sni_workaround">OkHttp SNI 兼容模式</string>
+<string name="github_okhttp_sni_workaround_description">将 TLS URL 主机名改为规则中的 SNI，并通过 DNS 映射到规则 IP；HTTP Host 和原始域名证书校验仍保留。仅对非空 SNI 规则生效。</string>
+<string name="network_event_logs">网络日志</string>
+<string name="network_event_logs_description">查看 GitHub 规则命中、DNS 兜底及连接方式</string>
 </resources>
