@@ -216,33 +216,6 @@ fun AdvancedPage(
                 title = stringResource(Res.string.external_calls_title),
                 onClick = { mainVm.navigator.navigate(ExternalCallsRoute) },
             )
-            GkSettingItem(
-                title = stringResource(Res.string.network_event_logs),
-                subtitle = stringResource(Res.string.network_event_logs_description),
-                onClick = { mainVm.navigator.navigate(NetworkEventLogRoute) },
-            )
-            AdvancedSectionTitle(stringResource(Res.string.github_network_compatibility))
-            GkTextSwitch(
-                title = stringResource(Res.string.github_network_compatibility),
-                subtitle = stringResource(Res.string.github_network_compatibility_description),
-                checked = store.enableGithubNetworkCompatibility,
-                onCheckedChange = { enabled ->
-                    SettingsRepository.updateSettings { it.copy(enableGithubNetworkCompatibility = enabled) }
-                },
-            )
-            GkTextSwitch(
-                title = stringResource(Res.string.github_okhttp_sni_workaround),
-                subtitle = stringResource(Res.string.github_okhttp_sni_workaround_description),
-                checked = store.githubUseOkHttpSniWorkaround,
-                onCheckedChange = { enabled ->
-                    SettingsRepository.updateSettings { it.copy(githubUseOkHttpSniWorkaround = enabled) }
-                },
-            )
-            GkSettingItem(
-                title = stringResource(Res.string.github_network_settings_title),
-                subtitle = "${runCatching { li.gkd.app.network.GithubHostRules.parse(store.githubHostRulesJson).size }.getOrDefault(0)} 条 GitHub 规则",
-                onClick = { showGithubNetworkSettings = true },
-            )
             AdvancedSectionTitle(stringResource(Res.string.advanced_upload_share))
             GkSettingItem(
                 title = stringResource(Res.string.github_cookie_label),
