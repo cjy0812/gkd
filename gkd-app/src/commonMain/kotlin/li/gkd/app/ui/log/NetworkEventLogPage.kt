@@ -22,15 +22,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import li.gkd.app.network.NetworkEvent
 import li.gkd.app.network.NetworkEventLog
+import li.gkd.app.network.toDiagnosticText
 import li.gkd.app.resources.*
-import org.jetbrains.compose.resources.stringResource
 import li.gkd.app.time.format
 import li.gkd.app.ui.MainViewModel
-import li.gkd.app.ui.component.GkPageBottomSpace
 import li.gkd.app.ui.component.GkIconButton
 import li.gkd.app.ui.component.GkIcons
+import li.gkd.app.ui.component.GkPageBottomSpace
 import li.gkd.app.ui.component.GkScaffold
 import li.gkd.app.ui.component.GkTopAppBar
+import li.gkd.app.util.copyText
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun NetworkEventLogPage() {
@@ -40,16 +42,27 @@ fun NetworkEventLogPage() {
     selectedEvent?.let { event ->
         li.gkd.app.ui.component.GkAlertDialog(
             onDismissRequest = { selectedEvent = null },
-            title = { Text("${event.level} · ${event.host}") },
+            title = { Text("\${event.source} · \${event.level} · \${event.host}") },
             text = {
                 Column {
                     Text(event.time.format("yyyy-MM-dd HH:mm:ss.SSS"))
-                    if (event.method.isNotEmpty()) Text("${event.method} ${event.requestUrl}")
+                    if (event.method.isNotEmpty()) Text("\${event.method} \${event.requestUrl}")
+                    event.statusCode?.let { Text("HTTP 状态：$it") }
+                    event.redirectTarget?.let { Text("重定向目标：$it") }
                     Text(event.detail)
-                    Text("事件 ID：${event.id}")
+                    Text("事件 ID：\${event.id}")
                 }
             },
-            confirmButton = { TextButton(onClick = { selectedEvent = null }) { Text(stringResource(Res.string.action_cancel)) } },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { copyText(event.toDiagnosticText()) }) {
+                        Text(stringResource(Res.string.action_copy))
+                    }
+                    TextButton(onClick = { selectedEvent = null }) {
+                        Text(stringResource(Res.string.action_cancel))
+                    }
+                }
+            },
         )
     }
     GkScaffold(
@@ -69,6 +82,9 @@ fun NetworkEventLogPage() {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
+                TextButton(onClick = { copyText(NetworkEventLog.export()) }, enabled = events.isNotEmpty()) {
+                    Text(stringResource(Res.string.action_copy))
+                }
                 TextButton(onClick = NetworkEventLog::clear, enabled = events.isNotEmpty()) {
                     Text(stringResource(Res.string.network_event_logs_clear))
                 }
@@ -96,7 +112,7 @@ fun NetworkEventLogPage() {
 private fun NetworkEventRow(event: NetworkEvent, onClick: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(
-            text = "${event.time.format("yyyy-MM-dd HH:mm:ss.SSS")}  ${event.level}",
+            text = "\${event.time.format("yyyy-MM-dd HH:mm:ss.SSS")}  \${event.source} · \${event.level}",
             style = MaterialTheme.typography.labelSmall,
             color = when (event.level) {
                 "ERROR" -> MaterialTheme.colorScheme.error

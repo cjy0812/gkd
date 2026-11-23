@@ -111,52 +111,84 @@ private object GithubImageCallFactory : Call.Factory {
             }
         }
         return defaultClient.newBuilder()
+            .followRedirects(true)
+            // The initial request may use a rewritten SNI host, but redirects must use and verify
+            // their own host and must not inherit the original request's Host header.
+            .followSslRedirects(false)
             .dns(dns)
             .hostnameVerifier { hostname, session ->
-                val verifiedHost = if (rewrittenHost != null && hostname.equals(rewrittenHost, ignoreCase = true)) {
-                    originalHost
-                } else hostname
+                val verifiedHost =
+                    if (rewrittenHost != null && hostname.equals(rewrittenHost, ignoreCase = true)) {
+                        originalHost
+                    } else hostname
                 HttpsURLConnection.getDefaultHostnameVerifier().verify(verifiedHost, session)
             }
             .addInterceptor { chain ->
                 val original = chain.request()
                 val actualHost = original.url.host
-                val rewritten = if (actualHost.equals(originalHost, ignoreCase = true) && rewrittenHost != null) {
+                val shouldRewrite = actualHost.equals(originalHost, ignoreCase = true) && rewrittenHost != null
+                val rewritten = if (shouldRewrite) {
                     original.newBuilder()
-                        .url(original.url.newBuilder().host(rewrittenHost).build())
+                        .url(original.url.newBuilder().host(rewrittenHost!!).build())
                         .header("Host", originalHost)
                         .build()
-                } else original
+                } else {
+                    original
+                }
                 NetworkEventLog.info(
                     originalHost,
                     when {
                         rule != null -> "预览图命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}"
-                        emptySniFallback && rewrittenHost != null -> "预览图无规则，DoH/DNS 空 SNI：$rewrittenHost"
+                        emptySniFallback && rewrittenHost != null -> "预览图无规则，DNS 空 SNI：$rewrittenHost"
                         else -> "预览图使用 DNS=$dnsMode，原始 SNI"
                     },
                 )
                 try {
-                    val response = chain.proceed(rewritten)
-                    NetworkEventLog.request(originalHost, original.method, original.url.toString(), status = response.code)
-                    response
+                    chain.proceed(rewritten)
                 } catch (error: Exception) {
-                    NetworkEventLog.request(originalHost, original.method, original.url.toString(), error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
+                    val requestHost = original.url.host
+                    val eventHost =
+                        if (shouldRewrite) originalHost else requestHost
+                    NetworkEventLog.request(
+                        host = eventHost,
+                        method = original.method,
+                        url = displayImageUrl(original, originalHost, rewrittenHost),
+                        error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}",
+                        source = "IMAGE",
+                    )
                     throw error
                 }
             }
             .addNetworkInterceptor { chain ->
                 val request = chain.request()
-                val adjusted = if (
-                    rewrittenHost != null &&
-                    request.url.host.equals(rewrittenHost, ignoreCase = true)
-                ) {
-                    request.newBuilder().header("Host", originalHost).build()
-                } else {
-                    request.newBuilder().removeHeader("Host").build()
-                }
-                chain.proceed(adjusted)
+                val isRewrittenHost =
+                    rewrittenHost != null && request.url.host.equals(rewrittenHost, ignoreCase = true)
+                val adjusted =
+                    if (isRewrittenHost) {
+                        request.newBuilder().header("Host", originalHost).build()
+                    } else {
+                        request.newBuilder().removeHeader("Host").build()
+                    }
+                val response = chain.proceed(adjusted)
+                val eventHost = if (isRewrittenHost) originalHost else request.url.host
+                NetworkEventLog.request(
+                    host = eventHost,
+                    method = request.method,
+                    url = displayImageUrl(request, originalHost, rewrittenHost),
+                    status = response.code,
+                    redirectLocation = response.header("Location"),
+                    source = "IMAGE",
+                )
+                response
             }
             .build()
+    }
+
+    private fun displayImageUrl(request: Request, originalHost: String, rewrittenHost: String?): String {
+        if (rewrittenHost == null || !request.url.host.equals(rewrittenHost, ignoreCase = true)) {
+            return request.url.toString()
+        }
+        return request.url.newBuilder().host(originalHost).build().toString()
     }
 
     private val defaultClient = OkHttpClient.Builder()
@@ -167,16 +199,32 @@ private object GithubImageCallFactory : Call.Factory {
 
     private val loggingClient = defaultClient.newBuilder()
         .addInterceptor { chain ->
-            val request = chain.request()
-            val host = request.url.host
             try {
-                val response = chain.proceed(request)
-                NetworkEventLog.request(host, request.method, request.url.toString(), status = response.code)
-                response
+                chain.proceed(chain.request())
             } catch (error: Exception) {
-                NetworkEventLog.request(host, request.method, request.url.toString(), error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
+                val request = chain.request()
+                NetworkEventLog.request(
+                    host = request.url.host,
+                    method = request.method,
+                    url = request.url.toString(),
+                    error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}",
+                    source = "IMAGE",
+                )
                 throw error
             }
+        }
+        .addNetworkInterceptor { chain ->
+            val request = chain.request()
+            val response = chain.proceed(request)
+            NetworkEventLog.request(
+                host = request.url.host,
+                method = request.method,
+                url = request.url.toString(),
+                status = response.code,
+                redirectLocation = response.header("Location"),
+                source = "IMAGE",
+            )
+            response
         }
         .build()
 }

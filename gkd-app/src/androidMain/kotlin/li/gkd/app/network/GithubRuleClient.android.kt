@@ -33,6 +33,8 @@ actual fun createGithubRuleClient(
                 trustManagers.filterIsInstance<X509TrustManager>().first()
             }
         val okhttp = OkHttpClient.Builder()
+            // Let Ktor's HttpRedirect plugin own redirects. This keeps the SNI/Host rewrite
+            // scoped to each Ktor request and prevents OkHttp from hiding intermediate hops.
             .followRedirects(false)
             .followSslRedirects(false)
             .dns(Dns { requestedHost ->
@@ -46,29 +48,47 @@ actual fun createGithubRuleClient(
                 SSLContext.getInstance("TLS").apply { init(null, arrayOf(systemTrustManager), null) }.socketFactory,
                 systemTrustManager,
             )
-            .hostnameVerifier { _, session ->
-                HttpsURLConnection.getDefaultHostnameVerifier().verify(host, session)
+            .hostnameVerifier { requestedHost, session ->
+                // The rewritten URL host represents the original GitHub request. A different
+                // redirect host must be verified against itself, never against the first host.
+                val verificationHost =
+                    if (requestedHost.equals(targetHost, ignoreCase = true)) host else requestedHost
+                HttpsURLConnection.getDefaultHostnameVerifier().verify(verificationHost, session)
             }
             .addInterceptor { chain ->
                 val request = chain.request()
-                val rewrittenUrl = request.url.newBuilder().host(targetHost).build()
-                val rewritten = request.newBuilder()
-                    .url(rewrittenUrl)
-                    .header("Host", host)
-                    .build()
-                NetworkEventLog.info(host, "OkHttp TLS host rewrite：URL host=$targetHost，HTTP Host=$host，SNI=${rule.sni.ifEmpty { "(empty)" }}")
+                val isOriginalHost = request.url.host.equals(host, ignoreCase = true)
+                val rewritten = if (isOriginalHost) {
+                    val rewrittenUrl = request.url.newBuilder().host(targetHost).build()
+                    request.newBuilder()
+                        .url(rewrittenUrl)
+                        .header("Host", host)
+                        .build()
+                } else {
+                    // Do not carry the original Host header onto a cross-host redirect.
+                    request.newBuilder().removeHeader("Host").build()
+                }
+                if (isOriginalHost) {
+                    NetworkEventLog.info(
+                        host,
+                        "OkHttp URL-host/DNS rewrite：URL host=$targetHost，HTTP Host=$host，SNI=${rule.sni.ifEmpty { "(empty)" }}",
+                    )
+                }
                 try {
                     chain.proceed(rewritten)
                 } catch (error: Exception) {
-                    NetworkEventLog.error(host, "OkHttp 连接失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
+                    NetworkEventLog.error(
+                        request.url.host,
+                        "OkHttp 连接失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}",
+                    )
                     throw error
                 }
             }
             .build()
-        NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书链与原始域名校验仍开启")
+        NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书链与请求目标域名校验仍开启")
         return HttpClient(OkHttp) {
             installNetworkEventLogging()
-            followRedirects = false
+            followRedirects = true
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
             }
@@ -95,6 +115,8 @@ actual fun createGithubRuleClient(
     val systemDns = JvmDnsResolver()
     return HttpClient(CIO) {
         installNetworkEventLogging()
+        // CIO's SNI value and explicit original-host certificate check are client-scoped.
+        // Keep cross-host redirects disabled here rather than reuse the first host's TLS policy.
         followRedirects = false
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
