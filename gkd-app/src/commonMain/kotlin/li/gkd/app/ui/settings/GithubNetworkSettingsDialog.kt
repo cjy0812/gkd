@@ -28,6 +28,10 @@ import li.gkd.app.resources.action_cancel
 import li.gkd.app.resources.action_save
 import li.gkd.app.resources.github_network_rules_json
 import li.gkd.app.resources.github_network_rules_url
+import li.gkd.app.resources.github_network_import_from_url
+import li.gkd.app.resources.github_network_importing
+import li.gkd.app.resources.github_network_capture_baseline
+import li.gkd.app.resources.github_network_verify_rule
 import li.gkd.app.resources.github_network_settings_title
 import li.gkd.app.ui.component.GkAlertDialog
 import org.jetbrains.compose.resources.stringResource
@@ -120,7 +124,7 @@ fun GithubNetworkSettingsDialog(
                     }
                 },
             ) {
-                Text(if (importing) "导入中…" else "从 URL 导入")
+                Text(stringResource(if (importing) Res.string.github_network_importing else Res.string.github_network_import_from_url))
             }
             TextButton(
                 enabled = !importing,
@@ -140,7 +144,7 @@ fun GithubNetworkSettingsDialog(
                     }
                 },
             ) {
-                Text("采集基准证书")
+                Text(stringResource(Res.string.github_network_capture_baseline))
             }
             TextButton(
                 enabled = !importing,
@@ -166,7 +170,7 @@ fun GithubNetworkSettingsDialog(
                     }
                 },
             ) {
-                Text("验证当前规则")
+                Text(stringResource(Res.string.github_network_verify_rule))
             }
         },
     )
