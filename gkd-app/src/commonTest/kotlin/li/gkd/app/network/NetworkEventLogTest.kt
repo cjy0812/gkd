@@ -1,9 +1,18 @@
 package li.gkd.app.network
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class NetworkEventLogTest {
     @Test
@@ -64,5 +73,33 @@ class NetworkEventLogTest {
         assertTrue(exported.contains("source=IMAGE"))
         assertTrue(exported.contains("http_status=302"))
         assertTrue(exported.contains("redirect_location=https://raw.githubusercontent.com/example/file"))
+    }
+
+    @Test
+    fun ktorRedirectPluginLogsIntermediateAndFinalResponses() = runTest {
+        NetworkEventLog.clear()
+        val client = HttpClient(MockEngine) {
+            followRedirects = true
+            installNetworkEventLogging()
+            engine {
+                addHandler { request ->
+                    if (request.url.encodedPath == "/start") {
+                        respond(
+                            content = "",
+                            status = HttpStatusCode.Found,
+                            headers = headersOf(HttpHeaders.Location, "/final"),
+                        )
+                    } else {
+                        respond(content = "ok", status = HttpStatusCode.OK)
+                    }
+                }
+            }
+        }
+
+        val body = client.use { it.get("https://github.com/start").bodyAsText() }
+        assertEquals("ok", body)
+        val exchanges = NetworkEventLog.events.value.filter { it.source == "HTTP" }
+        assertEquals(listOf(302, 200), exchanges.map { it.statusCode })
+        assertEquals("/final", exchanges.first().redirectTarget)
     }
 }
