@@ -5,6 +5,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.cio.JvmDnsResolver
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import li.gkd.app.network.installNetworkEventLogging
 import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
 import java.net.InetAddress
@@ -56,6 +57,7 @@ actual fun createGithubRuleClient(
             .build()
         NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书仍按原始域名校验")
         return HttpClient(OkHttp) {
+            installNetworkEventLogging()
             followRedirects = false
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
@@ -82,6 +84,7 @@ actual fun createGithubRuleClient(
         }
     val systemDns = JvmDnsResolver()
     return HttpClient(CIO) {
+        installNetworkEventLogging()
         followRedirects = false
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
