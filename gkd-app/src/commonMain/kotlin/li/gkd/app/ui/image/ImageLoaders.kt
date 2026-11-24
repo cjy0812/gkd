@@ -15,6 +15,7 @@ import li.gkd.app.network.GKD_NETWORK_REQUEST_HOST_HEADER
 import li.gkd.app.network.GKD_NETWORK_REQUEST_ID_HEADER
 import li.gkd.app.network.GKD_NETWORK_REQUEST_SOURCE_HEADER
 import li.gkd.app.network.GKD_NETWORK_REQUEST_STARTED_HEADER
+import li.gkd.app.network.GKD_NETWORK_REQUEST_SNI_HEADER
 import li.gkd.app.network.NetworkOkHttpDiagnostics
 import li.gkd.app.network.GithubHostRule
 import li.gkd.app.network.GithubHostRules
@@ -90,6 +91,12 @@ private object GithubImageCallFactory : Call.Factory {
             selectedIp = rule?.ip,
             sni = rule?.sni ?: host.takeUnless { settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround },
         )
+        val requestSni = rule?.sni ?: if (
+            settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround
+        ) "" else host
+        val routedDiagnosticRequest = diagnosticRequest.newBuilder()
+            .header(GKD_NETWORK_REQUEST_SNI_HEADER, requestSni.ifEmpty { "(empty)" })
+            .build()
         val key = listOf(
             host,
             settings.githubUseOkHttpSniWorkaround,
@@ -103,7 +110,7 @@ private object GithubImageCallFactory : Call.Factory {
         val client = clients.getOrPut(key) {
             createClient(host, rule, settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround, settings.githubDnsMode, settings.githubDnsCustomUrl, settings.githubDnsCustomServer)
         }
-        return client.newCall(diagnosticRequest)
+        return client.newCall(routedDiagnosticRequest)
     }
 
     private fun createClient(
