@@ -11,6 +11,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.HttpsURLConnection
 import li.gkd.app.network.GithubDnsResolver
+import li.gkd.app.network.GKD_NETWORK_REQUEST_HOST_HEADER
+import li.gkd.app.network.GKD_NETWORK_REQUEST_ID_HEADER
+import li.gkd.app.network.GKD_NETWORK_REQUEST_SOURCE_HEADER
+import li.gkd.app.network.GKD_NETWORK_REQUEST_STARTED_HEADER
+import li.gkd.app.network.NetworkOkHttpDiagnostics
 import li.gkd.app.network.GithubHostRule
 import li.gkd.app.network.GithubHostRules
 import li.gkd.app.network.NetworkEventLog
