@@ -48,9 +48,24 @@ private object GithubImageCallFactory : Call.Factory {
 
     override fun newCall(request: Request): Call {
         val host = request.url.host.lowercase()
-        if (!host.isGithubHost()) return loggingClient.newCall(request)
+        val requestId = NetworkEventLog.newRequestId()
+        val startedAt = System.currentTimeMillis()
+        val diagnosticRequest = request.newBuilder()
+            .header(GKD_NETWORK_REQUEST_ID_HEADER, requestId.toString())
+            .header(GKD_NETWORK_REQUEST_STARTED_HEADER, startedAt.toString())
+            .header(GKD_NETWORK_REQUEST_SOURCE_HEADER, "IMAGE")
+            .header(GKD_NETWORK_REQUEST_HOST_HEADER, host)
+            .build()
+        NetworkEventLog.requestStarted(
+            host = host,
+            method = request.method,
+            url = request.url.toString(),
+            requestId = requestId,
+            source = "IMAGE",
+        )
+        if (!host.isGithubHost()) return loggingClient.newCall(diagnosticRequest)
         val settings = SettingsRepository.settings.value
-        if (!settings.enableGithubNetworkCompatibility) return loggingClient.newCall(request)
+        if (!settings.enableGithubNetworkCompatibility) return loggingClient.newCall(diagnosticRequest)
         val rules = runCatching { GithubHostRules.parse(settings.githubHostRulesJson) }
             .onFailure { NetworkEventLog.error(host, "图片规则解析失败：${it.message}") }
             .getOrDefault(emptyList())
@@ -68,7 +83,7 @@ private object GithubImageCallFactory : Call.Factory {
         val client = clients.getOrPut(key) {
             createClient(host, rule, settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround, settings.githubDnsMode, settings.githubDnsCustomUrl, settings.githubDnsCustomServer)
         }
-        return client.newCall(request)
+        return client.newCall(diagnosticRequest)
     }
 
     private fun createClient(
@@ -134,15 +149,12 @@ private object GithubImageCallFactory : Call.Factory {
                         emptySniFallback && rewrittenHost != null -> "预览图无规则，DoH/DNS 空 SNI：$rewrittenHost"
                         else -> "预览图使用 DNS=$dnsMode，原始 SNI"
                     },
+                    source = "IMAGE",
+                    phase = "IMAGE_ROUTE_SELECTED",
+                    selectedIp = rule?.ip ?: fallbackIps.firstOrNull()?.hostAddress?.substringBefore('%'),
+                    sni = rule?.sni ?: rewrittenHost,
                 )
-                try {
-                    val response = chain.proceed(rewritten)
-                    NetworkEventLog.request(originalHost, original.method, original.url.toString(), status = response.code)
-                    response
-                } catch (error: Exception) {
-                    NetworkEventLog.request(originalHost, original.method, original.url.toString(), error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
-                    throw error
-                }
+                chain.proceed(rewritten)
             }
             .addNetworkInterceptor { chain ->
                 val request = chain.request()
@@ -163,22 +175,12 @@ private object GithubImageCallFactory : Call.Factory {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(NetworkOkHttpDiagnostics.applicationInterceptor)
+        .addNetworkInterceptor(NetworkOkHttpDiagnostics.imageNetworkInterceptor)
+        .eventListenerFactory(NetworkOkHttpDiagnostics)
         .build()
 
-    private val loggingClient = defaultClient.newBuilder()
-        .addInterceptor { chain ->
-            val request = chain.request()
-            val host = request.url.host
-            try {
-                val response = chain.proceed(request)
-                NetworkEventLog.request(host, request.method, request.url.toString(), status = response.code)
-                response
-            } catch (error: Exception) {
-                NetworkEventLog.request(host, request.method, request.url.toString(), error = "${error.javaClass.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
-                throw error
-            }
-        }
-        .build()
+    private val loggingClient = defaultClient.newBuilder().build()
 }
 
 private fun String.isGithubHost(): Boolean =
