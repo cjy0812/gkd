@@ -6,7 +6,7 @@ import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.http.HttpHeaders
 import io.ktor.util.AttributeKey
 import io.ktor.util.getOrNull
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -46,8 +46,8 @@ object NetworkEventLog {
     private data class RequestState(val hop: Int, val lastEventAt: Long)
 
     private val lock = Any()
-    private val nextId = AtomicLong(System.currentTimeMillis() * 1000)
-    private val nextRequestId = AtomicLong(System.currentTimeMillis() * 1000)
+    private val nextId = atomic(System.currentTimeMillis() * 1000)
+    private val nextRequestId = atomic(System.currentTimeMillis() * 1000)
     private val requestStates = mutableMapOf<Long, RequestState>()
     private val mutableEvents = MutableStateFlow<List<NetworkEvent>>(emptyList())
     val events = mutableEvents.asStateFlow()
