@@ -1,11 +1,11 @@
 package li.gkd.app.network
 
-import java.io.IOException
-import javax.net.ssl.SSLHandshakeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+
+private class SSLHandshakeException(message: String) : IllegalStateException(message)
 
 class NetworkEventLogTest {
     @Test
@@ -84,7 +84,7 @@ class NetworkEventLogTest {
             host = "github.com",
             method = "GET",
             url = "https://github.com/example/repo",
-            error = IOException("network timeout", IOException("connection refused")),
+            error = IllegalStateException("network timeout", IllegalStateException("connection refused")),
             requestId = requestId,
             startedAt = startedAt,
         )
@@ -92,7 +92,7 @@ class NetworkEventLogTest {
         val event = NetworkEventLog.events.value.last()
         assertEquals(requestId, event.requestId)
         assertEquals("REQUEST_FAILED", event.phase)
-        assertEquals("IOException", event.errorType)
+        assertEquals("IllegalStateException", event.errorType)
         assertTrue(event.errorChain.orEmpty().contains("connection refused"))
         assertTrue(event.durationMs != null)
     }
@@ -105,7 +105,7 @@ class NetworkEventLogTest {
             host = "github.com",
             method = "GET",
             url = "https://github.com/example/repo",
-            error = IOException("request failed", SSLHandshakeException("certificate rejected")),
+            error = IllegalStateException("request failed", SSLHandshakeException("certificate rejected")),
             requestId = requestId,
             startedAt = System.currentTimeMillis(),
         )
