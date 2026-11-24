@@ -35,7 +35,7 @@ object GithubDnsResolver {
             val remainingTtl = (entry.expiresAt - now).coerceAtLeast(0)
             NetworkEventLog.info(
                 host,
-                "DNS 缓存命中：$mode，${entry.addresses.size} 个地址，剩余 TTL=${remainingTtl}ms",
+                "DNS 缓存命中：$mode，${entry.addresses.size} 个地址，本地缓存剩余有效期=${remainingTtl}ms",
                 phase = "DNS_CACHE_HIT",
                 dnsServer = dnsServerLabel(mode, customServer),
                 resolvedIps = entry.addresses.map { it.hostAddress.substringBefore('%') },
@@ -46,7 +46,7 @@ object GithubDnsResolver {
         val startedAt = System.currentTimeMillis()
         NetworkEventLog.info(
             host,
-            "DNS 查询开始：mode=$mode，server=${dnsServerLabel(mode, customServer)}",
+            "DNS 查询开始：type=A，mode=$mode，server=${dnsServerLabel(mode, customServer)}",
             phase = "DNS_QUERY_START",
             dnsServer = dnsServerLabel(mode, customServer),
         )
