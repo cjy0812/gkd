@@ -20,6 +20,7 @@ private data class NetworkCallContext(
     val method: String,
     val url: String,
     val startedAt: Long?,
+    val sni: String?,
 )
 
 object NetworkOkHttpDiagnostics : EventListener.Factory {
@@ -32,6 +33,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
             method = request.method,
             url = request.url.toString(),
             startedAt = request.header(GKD_NETWORK_REQUEST_STARTED_HEADER)?.toLongOrNull(),
+            sni = request.header(GKD_NETWORK_REQUEST_SNI_HEADER),
         )
     }
 
@@ -44,12 +46,14 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
             method = request.method,
             url = request.url.toString(),
             startedAt = request.header(GKD_NETWORK_REQUEST_STARTED_HEADER)?.toLongOrNull(),
+            sni = request.header(GKD_NETWORK_REQUEST_SNI_HEADER),
         )
         val cleanRequest = request.newBuilder()
             .removeHeader(GKD_NETWORK_REQUEST_ID_HEADER)
             .removeHeader(GKD_NETWORK_REQUEST_STARTED_HEADER)
             .removeHeader(GKD_NETWORK_REQUEST_SOURCE_HEADER)
             .removeHeader(GKD_NETWORK_REQUEST_HOST_HEADER)
+            .removeHeader(GKD_NETWORK_REQUEST_SNI_HEADER)
             .tag(NetworkCallContext::class.java, context)
             .build()
         chain.proceed(cleanRequest)
@@ -119,6 +123,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 requestId = requestId,
                 resolvedIps = addresses,
                 durationMs = duration,
+                sni = sni,
             )
         }
 
@@ -131,6 +136,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 phase = "TCP_CONNECT_START",
                 requestId = requestId,
                 selectedIp = inetSocketAddress.address?.hostAddress?.substringBefore('%'),
+                sni = sni,
             )
         }
 
@@ -197,6 +203,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 phase = "TLS_HANDSHAKE_END",
                 requestId = requestId,
                 durationMs = duration,
+                sni = sni,
                 tlsProtocol = handshake?.tlsVersion?.javaName,
                 peerSubject = certificate?.subjectX500Principal?.name,
                 certificateSha256 = fingerprint,
@@ -212,6 +219,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 phase = "CONNECTION_ACQUIRED",
                 requestId = requestId,
                 selectedIp = socketAddress.address?.hostAddress?.substringBefore('%'),
+                sni = sni,
             )
         }
 
