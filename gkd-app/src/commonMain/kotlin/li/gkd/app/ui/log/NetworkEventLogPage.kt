@@ -89,7 +89,7 @@ fun NetworkEventLogPage() {
                     onClick = {
                         clipboard.setText(
                             AnnotatedString(
-                                events.asReversed().joinToString("\n\n") { it.toDiagnosticText() },
+                                events.joinToString("\n\n") { it.toDiagnosticText() },
                             ),
                         )
                     },
