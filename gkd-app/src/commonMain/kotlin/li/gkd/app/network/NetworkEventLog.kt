@@ -7,6 +7,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.util.AttributeKey
 import io.ktor.util.getOrNull
 import java.util.concurrent.atomic.AtomicLong
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -285,7 +287,7 @@ object NetworkEventLog {
             source = source,
             requestId = requestId,
             durationMs = duration,
-            phase = "REQUEST_FAILED",
+            phase = if (error.isTlsFailure()) "TLS_HANDSHAKE_FAILED" else "REQUEST_FAILED",
             errorType = error::class.simpleName,
             errorChain = chain,
             hop = state?.hop?.plus(1) ?: 1,
@@ -523,4 +525,20 @@ private fun throwableChain(error: Throwable): String {
     }
     val frames = error.stackTrace.take(6).joinToString("\n") { "  at $it" }
     return (parts + frames.takeIf(String::isNotBlank).orEmpty()).filter(String::isNotBlank).joinToString("\n")
+}
+
+private fun Throwable.isTlsFailure(): Boolean {
+    val seen = mutableSetOf<Throwable>()
+    var current: Throwable? = this
+    while (current != null && seen.add(current)) {
+        val type = current::class.simpleName.orEmpty()
+        if (
+            current is SSLException ||
+            current is CertificateException ||
+            type.contains("SSL", ignoreCase = true) ||
+            type.contains("Certificate", ignoreCase = true)
+        ) return true
+        current = current.cause
+    }
+    return false
 }
