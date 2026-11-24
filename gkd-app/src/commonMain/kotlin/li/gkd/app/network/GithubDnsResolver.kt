@@ -31,10 +31,60 @@ object GithubDnsResolver {
     ): List<InetAddress> {
         val key = listOf(host.lowercase(), mode, customUrl, customServer).joinToString("|")
         val now = System.currentTimeMillis()
-        cache[key]?.takeIf { it.expiresAt > now }?.let { return it.addresses }
-        val result = resolveUncached(host, mode, customUrl, customServer)
-        if (result.isNotEmpty()) cache[key] = CacheEntry(now + CACHE_TTL_MILLIS, result)
-        return result
+        cache[key]?.takeIf { it.expiresAt > now }?.let { entry ->
+            val remainingTtl = (entry.expiresAt - now).coerceAtLeast(0)
+            NetworkEventLog.info(
+                host,
+                "DNS 缓存命中：$mode，${entry.addresses.size} 个地址，剩余 TTL=${remainingTtl}ms",
+                phase = "DNS_CACHE_HIT",
+                dnsServer = dnsServerLabel(mode, customServer),
+                resolvedIps = entry.addresses.map { it.hostAddress.substringBefore('%') },
+                durationMs = 0,
+            )
+            return entry.addresses
+        }
+        val startedAt = System.currentTimeMillis()
+        NetworkEventLog.info(
+            host,
+            "DNS 查询开始：mode=$mode，server=${dnsServerLabel(mode, customServer)}",
+            phase = "DNS_QUERY_START",
+            dnsServer = dnsServerLabel(mode, customServer),
+        )
+        try {
+            val result = resolveUncached(host, mode, customUrl, customServer)
+            val addresses = result.map { it.hostAddress.substringBefore('%') }.distinct()
+            val duration = (System.currentTimeMillis() - startedAt).coerceAtLeast(0)
+            NetworkEventLog.info(
+                host,
+                "DNS 查询完成：${addresses.size} 个地址${if (addresses.isEmpty()) "（无 A 记录）" else ""}",
+                phase = "DNS_RESOLVED",
+                dnsServer = dnsServerLabel(mode, customServer),
+                resolvedIps = addresses,
+                durationMs = duration,
+            )
+            if (result.isNotEmpty()) cache[key] = CacheEntry(System.currentTimeMillis() + CACHE_TTL_MILLIS, result)
+            return result
+        } catch (error: Exception) {
+            NetworkEventLog.error(
+                host,
+                "DNS 查询失败：${error.message ?: error::class.simpleName}",
+                phase = "DNS_FAILED",
+                errorType = error::class.simpleName,
+                errorChain = error.stackTraceToString().take(4_000),
+                durationMs = (System.currentTimeMillis() - startedAt).coerceAtLeast(0),
+            )
+            throw error
+        }
+    }
+
+    private fun dnsServerLabel(mode: String, customServer: String): String = when (mode) {
+        "system" -> "system resolver"
+        "custom-dns" -> "$customServer:53/UDP"
+        "cloudflare" -> "cloudflare-dns.com/HTTPS"
+        "google" -> "dns.google/HTTPS"
+        "adguard" -> "dns.adguard-dns.com/HTTPS"
+        "custom", "custom-doh" -> "custom DoH"
+        else -> mode
     }
 
     private fun resolveUncached(
