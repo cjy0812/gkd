@@ -283,7 +283,7 @@ object NetworkEventLog {
             phase = "REQUEST_FAILED",
             errorType = error::class.simpleName,
             errorChain = chain,
-            hop = state?.hop?.plus(1),
+            hop = state?.hop?.plus(1) ?: 1,
         )
     }
 
@@ -403,16 +403,26 @@ object NetworkEventLog {
 private val NetworkRequestIdKey = AttributeKey<Long>("GkdNetworkRequestId")
 private val NetworkRequestStartedAtKey = AttributeKey<Long>("GkdNetworkRequestStartedAt")
 
-private val NetworkRequestTracker = createClientPlugin("GkdNetworkRequestTracker") {
+private class NetworkRequestTrackerConfig {
+    var propagateTransportHeaders: Boolean = false
+}
+
+private val NetworkRequestTracker = createClientPlugin(
+    "GkdNetworkRequestTracker",
+    ::NetworkRequestTrackerConfig,
+) {
+    val propagateTransportHeaders = pluginConfig.propagateTransportHeaders
     onRequest { request, _ ->
         val requestId = NetworkEventLog.newRequestId()
         val startedAt = System.currentTimeMillis()
         request.attributes.put(NetworkRequestIdKey, requestId)
         request.attributes.put(NetworkRequestStartedAtKey, startedAt)
-        request.headers.append(GKD_NETWORK_REQUEST_ID_HEADER, requestId.toString())
-        request.headers.append(GKD_NETWORK_REQUEST_STARTED_HEADER, startedAt.toString())
-        request.headers.append(GKD_NETWORK_REQUEST_SOURCE_HEADER, "HTTP")
-        request.headers.append(GKD_NETWORK_REQUEST_HOST_HEADER, request.url.host)
+        if (propagateTransportHeaders) {
+            request.headers.append(GKD_NETWORK_REQUEST_ID_HEADER, requestId.toString())
+            request.headers.append(GKD_NETWORK_REQUEST_STARTED_HEADER, startedAt.toString())
+            request.headers.append(GKD_NETWORK_REQUEST_SOURCE_HEADER, "HTTP")
+            request.headers.append(GKD_NETWORK_REQUEST_HOST_HEADER, request.url.host)
+        }
         NetworkEventLog.requestStarted(
             host = request.url.host,
             method = request.method.value,
@@ -422,8 +432,10 @@ private val NetworkRequestTracker = createClientPlugin("GkdNetworkRequestTracker
     }
 }
 
-fun HttpClientConfig<*>.installNetworkEventLogging() {
-    install(NetworkRequestTracker)
+fun HttpClientConfig<*>.installNetworkEventLogging(propagateTransportHeaders: Boolean = false) {
+    install(NetworkRequestTracker) {
+        this.propagateTransportHeaders = propagateTransportHeaders
+    }
     HttpResponseValidator {
         validateResponse { response ->
             val request = response.call.request
