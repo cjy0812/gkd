@@ -96,6 +96,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
         private val method: String,
         private val url: String,
         private val startedAt: Long?,
+        private val sni: String?,
     ) : EventListener() {
         private var dnsStartedAt: Long? = null
         private var connectStartedAt: Long? = null
