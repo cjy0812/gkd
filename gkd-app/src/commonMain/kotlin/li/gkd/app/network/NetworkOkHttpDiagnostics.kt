@@ -5,6 +5,7 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
+import javax.net.ssl.SSLException
 import okhttp3.Call
 import okhttp3.Connection
 import okhttp3.EventListener
@@ -110,6 +111,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 source = "NETWORK",
                 phase = "SOCKET_DNS_START",
                 requestId = requestId,
+                sni = sni,
             )
         }
 
@@ -156,6 +158,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 requestId = requestId,
                 selectedIp = inetSocketAddress.address?.hostAddress?.substringBefore('%'),
                 durationMs = duration,
+                sni = sni,
             )
         }
 
@@ -167,11 +170,12 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
             ioe: IOException,
         ) {
             val duration = connectStartedAt?.let { (System.currentTimeMillis() - it).coerceAtLeast(0) }
+            val tlsFailure = tlsStartedAt != null || ioe is SSLException
             NetworkEventLog.error(
                 host,
-                "TCP 连接失败：${inetSocketAddress.hostString}:${inetSocketAddress.port}，${ioe.message ?: ioe::class.simpleName}",
+                "${if (tlsFailure) "TLS 握手失败" else "TCP 连接失败"}：${inetSocketAddress.hostString}:${inetSocketAddress.port}，${ioe.message ?: ioe::class.simpleName}",
                 source = "NETWORK",
-                phase = "TCP_CONNECT_FAILED",
+                phase = if (tlsFailure) "TLS_HANDSHAKE_FAILED" else "TCP_CONNECT_FAILED",
                 requestId = requestId,
                 errorType = ioe::class.simpleName,
                 errorChain = ioe.stackTraceToString().take(4_000),
@@ -187,6 +191,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 source = "NETWORK",
                 phase = "TLS_HANDSHAKE_START",
                 requestId = requestId,
+                sni = sni,
             )
         }
 
@@ -199,7 +204,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
             val duration = tlsStartedAt?.let { (System.currentTimeMillis() - it).coerceAtLeast(0) }
             NetworkEventLog.info(
                 host,
-                "TLS 握手完成：${handshake?.tlsVersion}，cipher=${handshake?.cipherSuite}",
+                "TLS 握手完成（证书链及主机名校验已通过）：${handshake?.tlsVersion}，cipher=${handshake?.cipherSuite}",
                 source = "NETWORK",
                 phase = "TLS_HANDSHAKE_END",
                 requestId = requestId,
@@ -233,6 +238,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 phase = "CALL_END",
                 requestId = requestId,
                 durationMs = duration,
+                sni = sni,
             )
         }
 
