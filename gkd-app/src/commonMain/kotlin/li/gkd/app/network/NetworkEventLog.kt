@@ -194,7 +194,7 @@ object NetworkEventLog {
             source = source,
             host = host,
             message = "请求开始：$method $safeUrl",
-            detail = "HTTP 请求开始\nmethod=$method\nurl=$safeUrl",
+            detail = "$source 请求开始\nmethod=$method\nurl=$safeUrl",
             requestUrl = safeUrl,
             method = method,
             requestId = requestId,
