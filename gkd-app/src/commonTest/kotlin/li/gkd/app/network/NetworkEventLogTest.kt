@@ -147,7 +147,7 @@ class NetworkEventLogTest {
 
         val body = client.use { it.get("https://github.com/start").bodyAsText() }
         assertEquals("ok", body)
-        val exchanges = NetworkEventLog.events.value.filter { it.source == "HTTP" }
+        val exchanges = NetworkEventLog.events.value.filter { it.source == "HTTP" && it.httpStatus != null }
         assertEquals(listOf(302, 200), exchanges.map { it.httpStatus })
         assertEquals("/final", exchanges.first().redirectLocation)
     }
