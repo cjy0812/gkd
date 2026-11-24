@@ -35,6 +35,8 @@ actual fun createGithubRuleClient(
         val okhttp = OkHttpClient.Builder()
             .followRedirects(false)
             .followSslRedirects(false)
+            .addInterceptor(NetworkOkHttpDiagnostics.applicationInterceptor)
+            .eventListenerFactory(NetworkOkHttpDiagnostics)
             .dns(Dns { requestedHost ->
                 if (requestedHost.equals(targetHost, ignoreCase = true)) {
                     addresses.map(InetAddress::getByName)
