@@ -67,9 +67,9 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
             chain.proceed(request)
         } catch (error: IOException) {
             NetworkEventLog.requestFailed(
-                host = context?.host ?: request.url.host,
+                host = request.url.host,
                 method = request.method,
-                url = context?.url ?: request.url.toString(),
+                url = request.url.toString(),
                 error = error,
                 requestId = context?.requestId,
                 startedAt = context?.startedAt,
@@ -78,9 +78,9 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
             throw error
         }
         NetworkEventLog.response(
-            host = context?.host ?: request.url.host,
+            host = request.url.host,
             method = request.method,
-            url = context?.url ?: request.url.toString(),
+            url = request.url.toString(),
             status = response.code,
             redirectLocation = response.header("Location"),
             requestId = context?.requestId,
