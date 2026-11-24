@@ -125,7 +125,13 @@ object NetworkClients {
                     ContentType.Any,
                 )
             }
-            engine { clientCacheSize = 0 }
+            engine {
+                clientCacheSize = 0
+                config {
+                    addInterceptor(NetworkOkHttpDiagnostics.applicationInterceptor)
+                    eventListenerFactory(NetworkOkHttpDiagnostics)
+                }
+            }
         }
 }
 
