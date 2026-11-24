@@ -114,7 +114,7 @@ object NetworkClients {
 
     private fun create() =
         HttpClient(OkHttp) {
-            installNetworkEventLogging()
+            installNetworkEventLogging(propagateTransportHeaders = true)
             install(ContentNegotiation) {
                 json(
                     Json {
