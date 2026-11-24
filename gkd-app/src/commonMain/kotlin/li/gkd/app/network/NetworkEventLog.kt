@@ -261,7 +261,7 @@ object NetworkEventLog {
             host = host,
             method = method,
             url = url,
-            error = "\${error::class.simpleName ?: "Exception"}\${safeMessage?.let { ": $it" }.orEmpty()}",
+            error = "${error::class.simpleName ?: "Exception"}${safeMessage?.let { ": $it" }.orEmpty()}",
             source = "HTTP",
             requestId = requestId,
             durationMs = duration,
@@ -453,21 +453,21 @@ fun NetworkEvent.toDiagnosticText(): String = buildString {
     redirectLocation?.let { appendLine("redirect_location=$it") }
     durationMs?.let { appendLine("duration_ms=$it") }
     dnsServer?.let { appendLine("dns_server=$it") }
-    if (resolvedIps.isNotEmpty()) appendLine("resolved_ips=\${resolvedIps.joinToString()}")
+    if (resolvedIps.isNotEmpty()) appendLine("resolved_ips=${resolvedIps.joinToString()}")
     selectedIp?.let { appendLine("selected_ip=$it") }
-    sni?.let { appendLine("sni=\${it.ifEmpty { "(empty)" }}") }
+    sni?.let { appendLine("sni=${it.ifEmpty { "(empty)" }}") }
     tlsProtocol?.let { appendLine("tls_protocol=$it") }
     peerSubject?.let { appendLine("peer_subject=$it") }
     certificateSha256?.let { appendLine("certificate_sha256=$it") }
     errorType?.let { appendLine("error_type=$it") }
     errorChain?.let { appendLine("error_chain=$it") }
-    append("detail=\${sanitizeText(detail)}")
+    append("detail=${sanitizeText(detail)}")
 }
 
 private fun sanitizeUrl(url: String): String =
     url.substringBefore("?").substringBefore("#")
 
-private val diagnosticUrlPattern = Regex("""https?://[^\\s"'<>]+""", RegexOption.IGNORE_CASE)
+private val diagnosticUrlPattern = Regex("""https?://[^\s"'<>]+""", RegexOption.IGNORE_CASE)
 
 private fun sanitizeText(value: String): String =
     diagnosticUrlPattern.replace(value) { match ->
