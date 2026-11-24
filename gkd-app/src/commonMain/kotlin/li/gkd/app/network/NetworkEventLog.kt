@@ -65,6 +65,9 @@ object NetworkEventLog {
         selectedIp: String? = null,
         sni: String? = null,
         durationMs: Long? = null,
+        tlsProtocol: String? = null,
+        peerSubject: String? = null,
+        certificateSha256: String? = null,
     ) = append(
         level = "INFO",
         source = source,
@@ -184,11 +187,11 @@ object NetworkEventLog {
         )
     }
 
-    fun requestStarted(host: String, method: String, url: String, requestId: Long) {
+    fun requestStarted(host: String, method: String, url: String, requestId: Long, source: String = "HTTP") {
         val safeUrl = sanitizeUrl(url)
         append(
             level = "INFO",
-            source = "HTTP",
+            source = source,
             host = host,
             message = "请求开始：$method $safeUrl",
             detail = "HTTP 请求开始\nmethod=$method\nurl=$safeUrl",
