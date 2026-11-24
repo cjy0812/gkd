@@ -70,7 +70,7 @@ actual fun createGithubRuleClient(
             .build()
         NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书链与原始域名校验仍开启")
         return HttpClient(OkHttp) {
-            installNetworkEventLogging()
+            installNetworkEventLogging(propagateTransportHeaders = true)
             followRedirects = false
             defaultRequest {
                 headers.append(GKD_NETWORK_REQUEST_SNI_HEADER, rule.sni.ifEmpty { "(empty)" })
@@ -102,9 +102,6 @@ actual fun createGithubRuleClient(
     return HttpClient(CIO) {
         installNetworkEventLogging()
         followRedirects = false
-        defaultRequest {
-            headers.append(GKD_NETWORK_REQUEST_SNI_HEADER, rule.sni.ifEmpty { "(empty)" })
-        }
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
         }
