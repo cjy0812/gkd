@@ -180,6 +180,8 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 errorType = ioe::class.simpleName,
                 errorChain = ioe.stackTraceToString().take(4_000),
                 durationMs = duration,
+                selectedIp = inetSocketAddress.address?.hostAddress?.substringBefore('%'),
+                sni = sni,
             )
         }
 
@@ -253,6 +255,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                 errorType = ioe::class.simpleName,
                 errorChain = ioe.stackTraceToString().take(4_000),
                 durationMs = duration,
+                sni = sni,
             )
         }
     }
