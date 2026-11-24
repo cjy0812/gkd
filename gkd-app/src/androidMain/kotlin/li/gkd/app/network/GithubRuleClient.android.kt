@@ -49,21 +49,39 @@ actual fun createGithubRuleClient(
                 SSLContext.getInstance("TLS").apply { init(null, arrayOf(systemTrustManager), null) }.socketFactory,
                 systemTrustManager,
             )
-            .hostnameVerifier { _, session ->
-                HttpsURLConnection.getDefaultHostnameVerifier().verify(host, session)
+            .hostnameVerifier { requestedHost, session ->
+                // Verify rewritten original-host connections against the requested GitHub host;
+                // cross-host redirects must be verified against their own destination host.
+                val verificationHost =
+                    if (requestedHost.equals(targetHost, ignoreCase = true)) host else requestedHost
+                HttpsURLConnection.getDefaultHostnameVerifier().verify(verificationHost, session)
             }
             .addInterceptor { chain ->
                 val request = chain.request()
-                val rewrittenUrl = request.url.newBuilder().host(targetHost).build()
-                val rewritten = request.newBuilder()
-                    .url(rewrittenUrl)
-                    .header("Host", host)
-                    .build()
-                NetworkEventLog.info(host, "OkHttp TLS host rewrite：URL host=$targetHost，HTTP Host=$host，SNI=${rule.sni.ifEmpty { "(empty)" }}")
+                val isOriginalHost = request.url.host.equals(host, ignoreCase = true)
+                val rewritten = if (isOriginalHost) {
+                    val rewrittenUrl = request.url.newBuilder().host(targetHost).build()
+                    request.newBuilder()
+                        .url(rewrittenUrl)
+                        .header("Host", host)
+                        .build()
+                } else {
+                    // Never forward the original GitHub Host header to a different redirect host.
+                    request.newBuilder().removeHeader("Host").build()
+                }
+                if (isOriginalHost) {
+                    NetworkEventLog.info(
+                        host,
+                        "OkHttp URL-host/DNS rewrite：URL host=$targetHost，HTTP Host=$host，SNI=${rule.sni.ifEmpty { "(empty)" }}",
+                    )
+                }
                 try {
                     chain.proceed(rewritten)
                 } catch (error: Exception) {
-                    NetworkEventLog.error(host, "OkHttp 连接失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}")
+                    NetworkEventLog.error(
+                        request.url.host,
+                        "OkHttp 连接失败：${error::class.simpleName}: ${networkFailureSummary(error) ?: "request failed"}",
+                    )
                     throw error
                 }
             }
@@ -71,7 +89,7 @@ actual fun createGithubRuleClient(
         NetworkEventLog.info(host, "使用 OkHttp URL-host/DNS workaround；证书链与原始域名校验仍开启")
         return HttpClient(OkHttp) {
             installNetworkEventLogging(propagateTransportHeaders = true)
-            followRedirects = false
+            followRedirects = true
             defaultRequest {
                 headers.append(GKD_NETWORK_REQUEST_SNI_HEADER, rule.sni.ifEmpty { "(empty)" })
             }
