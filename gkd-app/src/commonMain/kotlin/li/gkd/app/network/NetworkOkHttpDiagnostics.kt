@@ -132,6 +132,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
 
         override fun connectStart(call: Call, inetSocketAddress: InetSocketAddress, proxy: Proxy) {
             connectStartedAt = System.currentTimeMillis()
+            tlsStartedAt = null
             NetworkEventLog.info(
                 host,
                 "TCP 连接开始：${inetSocketAddress.hostString}:${inetSocketAddress.port}，proxy=$proxy",
@@ -204,6 +205,7 @@ object NetworkOkHttpDiagnostics : EventListener.Factory {
                     .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
             }
             val duration = tlsStartedAt?.let { (System.currentTimeMillis() - it).coerceAtLeast(0) }
+            tlsStartedAt = null
             NetworkEventLog.info(
                 host,
                 "TLS 握手完成（证书链及主机名校验已通过）：${handshake?.tlsVersion}，cipher=${handshake?.cipherSuite}",
