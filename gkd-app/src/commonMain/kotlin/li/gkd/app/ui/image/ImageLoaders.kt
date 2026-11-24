@@ -153,6 +153,8 @@ private object GithubImageCallFactory : Call.Factory {
             }
         }
         return defaultClient.newBuilder()
+            .followRedirects(true)
+            .followSslRedirects(false)
             .dns(dns)
             .hostnameVerifier { hostname, session ->
                 val verifiedHost = if (rewrittenHost != null && hostname.equals(rewrittenHost, ignoreCase = true)) {
@@ -163,12 +165,16 @@ private object GithubImageCallFactory : Call.Factory {
             .addInterceptor { chain ->
                 val original = chain.request()
                 val actualHost = original.url.host
-                val rewritten = if (actualHost.equals(originalHost, ignoreCase = true) && rewrittenHost != null) {
+                val shouldRewrite = actualHost.equals(originalHost, ignoreCase = true) && rewrittenHost != null
+                val rewritten = if (shouldRewrite) {
                     original.newBuilder()
-                        .url(original.url.newBuilder().host(rewrittenHost).build())
+                        .url(original.url.newBuilder().host(rewrittenHost!!).build())
                         .header("Host", originalHost)
                         .build()
-                } else original
+                } else {
+                    // A cross-host redirect must not inherit the original GitHub Host header.
+                    original.newBuilder().removeHeader("Host").build()
+                }
                 NetworkEventLog.info(
                     originalHost,
                     when {
