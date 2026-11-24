@@ -89,7 +89,7 @@ private object GithubImageCallFactory : Call.Factory {
             requestId = requestId,
             resolvedIps = rule?.resolvedIps.orEmpty(),
             selectedIp = rule?.ip,
-            sni = rule?.sni ?: host.takeUnless { settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround },
+            sni = rule?.sni ?: if (settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround) "" else host,
         )
         val requestSni = rule?.sni ?: if (
             settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround
