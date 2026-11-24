@@ -1,5 +1,14 @@
 package li.gkd.app.network
 
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -113,6 +122,34 @@ class NetworkEventLogTest {
         val event = NetworkEventLog.events.value.last()
         assertEquals("TLS_HANDSHAKE_FAILED", event.phase)
         assertTrue(event.errorChain.orEmpty().contains("certificate rejected"))
+    }
+
+    @Test
+    fun ktorRedirectPluginLogsIntermediateAndFinalResponses() = runTest {
+        NetworkEventLog.clear()
+        val client = HttpClient(MockEngine) {
+            followRedirects = true
+            installNetworkEventLogging()
+            engine {
+                addHandler { request ->
+                    if (request.url.encodedPath == "/start") {
+                        respond(
+                            content = "",
+                            status = HttpStatusCode.Found,
+                            headers = headersOf(HttpHeaders.Location, "/final"),
+                        )
+                    } else {
+                        respond(content = "ok", status = HttpStatusCode.OK)
+                    }
+                }
+            }
+        }
+
+        val body = client.use { it.get("https://github.com/start").bodyAsText() }
+        assertEquals("ok", body)
+        val exchanges = NetworkEventLog.events.value.filter { it.source == "HTTP" }
+        assertEquals(listOf(302, 200), exchanges.map { it.httpStatus })
+        assertEquals("/final", exchanges.first().redirectLocation)
     }
 
 }
