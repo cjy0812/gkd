@@ -101,6 +101,13 @@ jobs:
           GKD_GITHUB_COOKIE: ${{ secrets.GKD_GITHUB_COOKIE }}
           GKD_SERVER_TOKEN: ${{ secrets.GKD_SERVER_TOKEN }}
 
+      - name: verify debug APK and print SHA-256
+        shell: bash
+        run: |
+          apk_files=(gkd-android/build/outputs/apk/gkd/debug/*.apk)
+          [[ ${#apk_files[@]} -eq 1 && -f "${apk_files[0]}" ]]
+          sha256sum "${apk_files[0]}"
+
       - uses: actions/upload-artifact@v7
         with:
           name: gkd-network-compatibility-debug
