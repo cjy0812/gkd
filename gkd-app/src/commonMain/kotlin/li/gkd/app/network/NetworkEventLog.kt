@@ -7,8 +7,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.util.AttributeKey
 import io.ktor.util.getOrNull
 import java.util.concurrent.atomic.AtomicLong
-import java.security.cert.CertificateException
-import javax.net.ssl.SSLException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -532,9 +530,9 @@ private fun Throwable.isTlsFailure(): Boolean {
     var current: Throwable? = this
     while (current != null && seen.add(current)) {
         val type = current::class.simpleName.orEmpty()
+        // Keep commonMain independent of JVM TLS classes. Platform exception types still
+        // expose stable class names through Throwable, including wrapped causes.
         if (
-            current is SSLException ||
-            current is CertificateException ||
             type.contains("SSL", ignoreCase = true) ||
             type.contains("Certificate", ignoreCase = true)
         ) return true
