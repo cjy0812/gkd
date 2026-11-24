@@ -5,6 +5,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.engine.cio.JvmDnsResolver
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
 import li.gkd.app.network.installNetworkEventLogging
 import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
@@ -71,6 +72,9 @@ actual fun createGithubRuleClient(
         return HttpClient(OkHttp) {
             installNetworkEventLogging()
             followRedirects = false
+            defaultRequest {
+                headers.append(GKD_NETWORK_REQUEST_SNI_HEADER, rule.sni.ifEmpty { "(empty)" })
+            }
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
             }
@@ -98,6 +102,9 @@ actual fun createGithubRuleClient(
     return HttpClient(CIO) {
         installNetworkEventLogging()
         followRedirects = false
+        defaultRequest {
+            headers.append(GKD_NETWORK_REQUEST_SNI_HEADER, rule.sni.ifEmpty { "(empty)" })
+        }
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }, ContentType.Any)
         }
