@@ -130,6 +130,7 @@ object NetworkEventLog {
         error: String? = null,
         source: String = "HTTP",
         requestId: Long? = null,
+        hop: Int? = null,
         redirectLocation: String? = null,
         durationMs: Long? = null,
         phase: String? = null,
@@ -166,6 +167,7 @@ object NetworkEventLog {
             method = method,
             requestId = requestId,
             redirectChainId = requestId,
+            hop = hop,
             phase = phase ?: if (error != null) "REQUEST_FAILED" else "HTTP_RESPONSE",
             httpStatus = status,
             redirectLocation = safeLocation,
@@ -268,15 +270,8 @@ object NetworkEventLog {
             phase = "REQUEST_FAILED",
             errorType = error::class.simpleName,
             errorChain = chain,
+            hop = state?.hop?.plus(1),
         )
-        if (state != null) {
-            synchronized(lock) {
-                val last = mutableEvents.value.lastOrNull()
-                if (last?.requestId == requestId) {
-                    mutableEvents.value = mutableEvents.value.dropLast(1) + last.copy(hop = state.hop + 1)
-                }
-            }
-        }
     }
 
     private fun buildEvent(
