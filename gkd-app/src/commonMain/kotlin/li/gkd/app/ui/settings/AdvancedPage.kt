@@ -17,6 +17,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -45,6 +48,7 @@ import li.gkd.app.ui.navigation.AppNavEntry
 import li.gkd.app.ui.navigation.DebugSettingsRoute
 import li.gkd.app.ui.navigation.ExternalCallsRoute
 import li.gkd.app.ui.navigation.MatchDebugRoute
+import li.gkd.app.ui.navigation.NetworkEventLogRoute
 import li.gkd.app.ui.navigation.QuickSettingsTilesRoute
 import li.gkd.app.ui.navigation.SnapshotPageRoute
 import li.gkd.app.ui.navigation.SnapshotSettingsRoute
@@ -74,7 +78,6 @@ fun AdvancedPage(
     val eventServiceRunning: Boolean = eventMonitorRunning()
 
     val trackServiceRunning: Boolean = trackServiceRunning()
-
     val showTrackNotice by vm.showTrackNotice.collectAsStateWithLifecycle()
     if (showTrackNotice)
         GkAlertDialog(

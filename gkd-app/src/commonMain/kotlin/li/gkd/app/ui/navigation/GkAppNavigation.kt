@@ -14,6 +14,7 @@ import li.gkd.app.ui.home.NotificationTextPage
 import li.gkd.app.ui.log.A11yEventLogPage
 import li.gkd.app.ui.log.ActivityLogPage
 import li.gkd.app.ui.log.MatchDebugPage
+import li.gkd.app.ui.log.NetworkEventLogPage
 import li.gkd.app.ui.settings.AboutPage
 import li.gkd.app.ui.settings.AdvancedPage
 import li.gkd.app.ui.settings.AppWhitelistPage
@@ -21,6 +22,7 @@ import li.gkd.app.ui.settings.DebugSettingsPage
 import li.gkd.app.ui.settings.ExternalCallsPage
 import li.gkd.app.ui.settings.InterfaceSettingsPage
 import li.gkd.app.ui.settings.KeepAlivePage
+import li.gkd.app.ui.settings.NetworkSettingsPage
 import li.gkd.app.ui.settings.QuickSettingsTilesPage
 import li.gkd.app.ui.settings.ServiceScopeAppListPage
 import li.gkd.app.ui.settings.ServiceScopeKind
@@ -69,6 +71,8 @@ fun GkAppNavigation() {
                 is ImagePreviewRoute -> ImagePreviewPage(route)
 
                 ActivityLogRoute -> ActivityLogPage()
+                NetworkEventLogRoute -> NetworkEventLogPage()
+                NetworkSettingsRoute -> NetworkSettingsPage()
                 A11yEventLogRoute -> A11yEventLogPage()
                 BlockA11yAppListRoute -> ServiceScopeAppListPage(ServiceScopeKind.Disabled)
                 CompanionScopeAppListRoute -> ServiceScopeAppListPage(ServiceScopeKind.Companion)

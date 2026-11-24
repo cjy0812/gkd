@@ -57,7 +57,7 @@ private suspend fun graphqlFetch(
     cookie: String,
     data: String,
 ): HttpResponse {
-    return NetworkClients.client.post(AppLinks.GithubGraphql) {
+    return NetworkClients.clientFor(AppLinks.GithubGraphql).post(AppLinks.GithubGraphql) {
         setCommonHeaders(cookie)
         header("Accept", "application/json")
         header("Content-Type", "text/plain;charset=UTF-8")
@@ -75,7 +75,7 @@ object GithubUploader {
     ): GithubPoliciesAsset {
         // prepare upload asset
         val policiesRawResp =
-            NetworkClients.client.post(AppLinks.GithubUploadPolicies) {
+            NetworkClients.clientFor(AppLinks.GithubUploadPolicies).post(AppLinks.GithubUploadPolicies) {
                 setCommonHeaders(cookie)
                 header("GitHub-Verified-Fetch", "true")
                 header("X-Requested-With", "XMLHttpRequest")
@@ -97,7 +97,7 @@ object GithubUploader {
 
         // upload to s3
         val byteArray = file.readBytes()
-        NetworkClients.client.post(policiesResp.upload_url) {
+        NetworkClients.clientFor(policiesResp.upload_url).post(policiesResp.upload_url) {
             // upload_url points to external storage, so GitHub credentials must not be sent.
             setBody(
                 MultiPartFormDataContent(
@@ -122,7 +122,7 @@ object GithubUploader {
         }
 
         // check assets
-        NetworkClients.client.put(AppLinks.githubAssetUpload(policiesResp.asset_upload_url)) {
+        NetworkClients.clientFor(AppLinks.githubAssetUpload(policiesResp.asset_upload_url)).put(AppLinks.githubAssetUpload(policiesResp.asset_upload_url)) {
             setCommonHeaders(cookie)
             header("Accept", "application/json")
             setBody(

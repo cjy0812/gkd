@@ -94,6 +94,7 @@ kotlin {
             api(libs.kotlinx.serialization.json)
         }
         androidMain.dependencies {
+            api(libs.ktor.client.cio)
             api(libs.priv.kit.input)
             api(project(":gkd-aidl"))
             api(libs.androidx.lifecycle.service)
@@ -116,6 +117,7 @@ kotlin {
             api(libs.compose.ui.graphics)
         }
         jvmMain.dependencies {
+            api(libs.ktor.client.cio)
             api(libs.jna)
             api(libs.jna.platform)
             api(libs.webview2.compose)
@@ -125,6 +127,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         named("androidHostTest") {
             dependencies {

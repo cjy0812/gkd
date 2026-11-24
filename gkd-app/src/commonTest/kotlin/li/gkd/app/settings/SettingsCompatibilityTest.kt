@@ -79,9 +79,33 @@ class SettingsCompatibilityTest {
         assertEquals(0, defaults.subsAppRuleDisplayMode)
         assertEquals(0, defaults.updateChannel)
         assertEquals(1, defaults.snapshotDisplayMode)
+        assertFalse(defaults.enableGithubNetworkCompatibility)
+        assertFalse(defaults.githubUseOkHttpSniWorkaround)
+        assertEquals(
+            "https://github.com/SpaceTimee/Cealing-Host/raw/main/Cealing-Host.json",
+            defaults.githubHostRulesUrl,
+        )
+        assertEquals("", defaults.githubTlsBaselineFingerprint)
+        assertEquals("", defaults.githubTlsBaselineJson)
         val inherited = Json.decodeFromString<SettingsStore>("""{"appGroupType":7}""")
         assertEquals(7, inherited.serviceScopeAppGroupType)
         assertEquals(7, inherited.subsExcludeAppGroupType)
+    }
+
+
+    @Test
+    fun networkCompatibilitySettingsRoundTrip() {
+        val saved =
+            SettingsStore(
+                enableGithubNetworkCompatibility = true,
+                githubUseOkHttpSniWorkaround = true,
+                githubHostRulesUrl = "https://example.com/rules.json",
+                githubHostRulesJson = """[[["api.github.com"],"","192.0.2.1"]]""",
+                githubTlsBaselineFingerprint = "AA:BB:CC",
+                githubTlsBaselineJson = """{"host":"api.github.com","sha256":"AA:BB:CC"}""",
+            )
+        val restored = Json.decodeFromString<SettingsStore>(Json.encodeToString(saved))
+        assertEquals(saved, restored)
     }
 
     @Test

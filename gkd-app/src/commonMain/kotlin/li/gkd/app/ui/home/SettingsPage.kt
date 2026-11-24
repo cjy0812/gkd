@@ -36,6 +36,7 @@ import li.gkd.app.ui.navigation.BlockA11ySetupRoute
 import li.gkd.app.ui.navigation.InterfaceSettingsRoute
 import li.gkd.app.ui.navigation.KeepAliveRoute
 import li.gkd.app.ui.navigation.NotificationTextRoute
+import li.gkd.app.ui.navigation.NetworkSettingsRoute
 import li.gkd.app.ui.navigation.TouchOptimizationRoute
 import li.gkd.app.ui.page.BackupDialog
 import li.gkd.app.ui.page.GkBackupDialogs
@@ -216,6 +217,18 @@ fun settingsPage(
                         },
                     )
                 }
+
+                Text(
+                    text = stringResource(Res.string.settings_network),
+                    modifier = Modifier.titleItemPadding(),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                GkSettingItem(
+                    title = stringResource(Res.string.network_settings_title),
+                    subtitle = stringResource(Res.string.network_settings_subtitle),
+                    onClick = { mainVm.navigator.navigate(NetworkSettingsRoute) },
+                )
 
                 Text(
                     text = stringResource(Res.string.settings_other),
