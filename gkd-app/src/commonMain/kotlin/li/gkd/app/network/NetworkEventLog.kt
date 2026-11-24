@@ -77,6 +77,9 @@ object NetworkEventLog {
         selectedIp = selectedIp,
         sni = sni,
         durationMs = durationMs,
+        tlsProtocol = tlsProtocol,
+        peerSubject = peerSubject,
+        certificateSha256 = certificateSha256,
     )
 
     fun warn(
@@ -205,6 +208,7 @@ object NetworkEventLog {
         redirectLocation: String?,
         requestId: Long?,
         startedAt: Long?,
+        source: String = "HTTP",
     ) {
         val now = System.currentTimeMillis()
         val isRedirect = status in 300..399 && !redirectLocation.isNullOrBlank()
@@ -236,6 +240,7 @@ object NetworkEventLog {
             durationMs = duration,
             hop = hop,
             phase = if (isRedirect) "REDIRECT_RESPONSE" else "HTTP_RESPONSE",
+            source = source,
         )
         appendEvent(event)
     }
@@ -247,6 +252,7 @@ object NetworkEventLog {
         error: Throwable,
         requestId: Long?,
         startedAt: Long?,
+        source: String = "HTTP",
     ) {
         val now = System.currentTimeMillis()
         val state = requestId?.let { id ->
@@ -264,7 +270,7 @@ object NetworkEventLog {
             method = method,
             url = url,
             error = "${error::class.simpleName ?: "Exception"}${safeMessage?.let { ": $it" }.orEmpty()}",
-            source = "HTTP",
+            source = source,
             requestId = requestId,
             durationMs = duration,
             phase = "REQUEST_FAILED",
@@ -284,6 +290,7 @@ object NetworkEventLog {
         durationMs: Long?,
         hop: Int?,
         phase: String,
+        source: String,
     ): NetworkEvent {
         val safeUrl = sanitizeUrl(url)
         val safeLocation = redirectLocation?.let(::sanitizeUrl)
@@ -309,7 +316,7 @@ object NetworkEventLog {
             detail = message,
             requestUrl = safeUrl,
             method = method,
-            source = "HTTP",
+            source = source,
             requestId = requestId,
             redirectChainId = requestId,
             hop = hop,
@@ -395,6 +402,10 @@ private val NetworkRequestTracker = createClientPlugin("GkdNetworkRequestTracker
         val startedAt = System.currentTimeMillis()
         request.attributes.put(NetworkRequestIdKey, requestId)
         request.attributes.put(NetworkRequestStartedAtKey, startedAt)
+        request.headers.append(GKD_NETWORK_REQUEST_ID_HEADER, requestId.toString())
+        request.headers.append(GKD_NETWORK_REQUEST_STARTED_HEADER, startedAt.toString())
+        request.headers.append(GKD_NETWORK_REQUEST_SOURCE_HEADER, "HTTP")
+        request.headers.append(GKD_NETWORK_REQUEST_HOST_HEADER, request.url.host)
         NetworkEventLog.requestStarted(
             host = request.url.host,
             method = request.method.value,
@@ -431,6 +442,11 @@ fun HttpClientConfig<*>.installNetworkEventLogging() {
         }
     }
 }
+
+const val GKD_NETWORK_REQUEST_ID_HEADER = "X-GKD-Diagnostic-Request-Id"
+const val GKD_NETWORK_REQUEST_STARTED_HEADER = "X-GKD-Diagnostic-Started-At"
+const val GKD_NETWORK_REQUEST_SOURCE_HEADER = "X-GKD-Diagnostic-Source"
+const val GKD_NETWORK_REQUEST_HOST_HEADER = "X-GKD-Diagnostic-Original-Host"
 
 fun NetworkEvent.toDiagnosticText(): String = buildString {
     appendLine("time_ms=$time")
