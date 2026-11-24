@@ -218,14 +218,15 @@ object NetworkEventLog {
         source: String = "HTTP",
     ) {
         val now = System.currentTimeMillis()
-        val isRedirect = status in 300..399 && !redirectLocation.isNullOrBlank()
+        val isRedirect = status in setOf(300, 301, 302, 303, 305, 307, 308)
+        val hasRedirectLocation = !redirectLocation.isNullOrBlank()
         val (hop, duration) = requestId?.let { id ->
             synchronized(lock) {
                 pruneRequestStates(now)
                 val previous = requestStates[id]
                 val nextHop = (previous?.hop ?: 0) + 1
                 val elapsed = (now - (previous?.lastEventAt ?: startedAt ?: now)).coerceAtLeast(0)
-                if (isRedirect) {
+                if (isRedirect && hasRedirectLocation) {
                     requestStates[id] = RequestState(nextHop, now)
                     while (requestStates.size > MAX_IN_FLIGHT) {
                         requestStates.remove(requestStates.keys.firstOrNull())
@@ -246,7 +247,11 @@ object NetworkEventLog {
             requestId = requestId,
             durationMs = duration,
             hop = hop,
-            phase = if (isRedirect) "REDIRECT_RESPONSE" else "HTTP_RESPONSE",
+            phase = when {
+                isRedirect && hasRedirectLocation -> "REDIRECT_RESPONSE"
+                isRedirect -> "REDIRECT_LOCATION_MISSING"
+                else -> "HTTP_RESPONSE"
+            },
             source = source,
         )
         appendEvent(event)
