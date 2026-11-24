@@ -57,7 +57,7 @@ class NetworkEventLogTest {
         )
 
         val chain = NetworkEventLog.events.value.filter { it.requestId == requestId }
-        assertEquals(listOf(1, 1, 2), chain.mapNotNull { it.hop })
+        assertEquals(listOf(1, 2), chain.mapNotNull { it.hop })
         assertTrue(chain.all { it.redirectChainId == requestId })
         assertEquals("REDIRECT_RESPONSE", chain[1].phase)
         assertEquals("HTTP_RESPONSE", chain[2].phase)
