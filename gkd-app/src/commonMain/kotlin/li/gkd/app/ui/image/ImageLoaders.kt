@@ -75,6 +75,21 @@ private object GithubImageCallFactory : Call.Factory {
             .onFailure { NetworkEventLog.error(host, "图片规则解析失败：${it.message}") }
             .getOrDefault(emptyList())
         val rule = GithubHostRules.find(rules, host)
+        NetworkEventLog.info(
+            host,
+            when {
+                rule != null -> "图片请求命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}"
+                settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround ->
+                    "图片请求无规则，启用空 SNI DNS 回退"
+                else -> "图片请求无规则，使用 DNS=${settings.githubDnsMode} 和原始 SNI"
+            },
+            source = "IMAGE",
+            phase = if (rule != null) "IMAGE_RULE_MATCH" else "IMAGE_RULE_MISS",
+            requestId = requestId,
+            resolvedIps = rule?.resolvedIps.orEmpty(),
+            selectedIp = rule?.ip,
+            sni = rule?.sni ?: host.takeUnless { settings.githubEmptySniFallback && !settings.githubUseOkHttpSniWorkaround },
+        )
         val key = listOf(
             host,
             settings.githubUseOkHttpSniWorkaround,
