@@ -450,6 +450,7 @@ const val GKD_NETWORK_REQUEST_ID_HEADER = "X-GKD-Diagnostic-Request-Id"
 const val GKD_NETWORK_REQUEST_STARTED_HEADER = "X-GKD-Diagnostic-Started-At"
 const val GKD_NETWORK_REQUEST_SOURCE_HEADER = "X-GKD-Diagnostic-Source"
 const val GKD_NETWORK_REQUEST_HOST_HEADER = "X-GKD-Diagnostic-Original-Host"
+const val GKD_NETWORK_REQUEST_SNI_HEADER = "X-GKD-Diagnostic-SNI"
 
 fun NetworkEvent.toDiagnosticText(): String = buildString {
     appendLine("time_ms=$time")
