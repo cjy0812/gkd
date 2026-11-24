@@ -109,6 +109,8 @@ object NetworkEventLog {
         errorType: String? = null,
         errorChain: String? = null,
         durationMs: Long? = null,
+        selectedIp: String? = null,
+        sni: String? = null,
     ) = append(
         level = "ERROR",
         source = source,
@@ -119,6 +121,8 @@ object NetworkEventLog {
         errorType = errorType,
         errorChain = errorChain,
         durationMs = durationMs,
+        selectedIp = selectedIp,
+        sni = sni,
     )
 
     fun clear() {
