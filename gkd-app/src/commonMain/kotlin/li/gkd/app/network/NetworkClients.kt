@@ -39,7 +39,14 @@ object NetworkClients {
             }
         val rule = GithubHostRules.find(rules, host)
         if (rule != null) {
-            NetworkEventLog.info(host, "命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}")
+            NetworkEventLog.info(
+                host,
+                "命中规则：SNI=${rule.sni.ifEmpty { "(empty)" }}，IP=${rule.ip}",
+                phase = "HOST_RULE_MATCH",
+                resolvedIps = rule.resolvedIps,
+                selectedIp = rule.ip,
+                sni = rule.sni,
+            )
             val key = listOf(
                 host,
                 rule.sni,
@@ -74,7 +81,20 @@ object NetworkClients {
         )
         NetworkEventLog.info(
             host,
-            "无匹配规则，DNS=${store.githubDnsMode}，IP=${ipv4.joinToString()}，SNI=${fallbackRule.sni.ifEmpty { "(empty)" }}",
+            "无匹配规则，DNS=${store.githubDnsMode}，候选 IP=${ipv4.joinToString()}，实际选择 IP=${fallbackRule.ip}，SNI=${fallbackRule.sni.ifEmpty { "(empty)" }}",
+            phase = "HOST_RULE_MISS",
+            dnsServer = when (store.githubDnsMode) {
+                "system" -> "system resolver"
+                "custom-dns" -> "${store.githubDnsCustomServer}:53/UDP"
+                "cloudflare" -> "cloudflare-dns.com/HTTPS"
+                "google" -> "dns.google/HTTPS"
+                "adguard" -> "dns.adguard-dns.com/HTTPS"
+                "custom", "custom-doh" -> "custom DoH"
+                else -> store.githubDnsMode
+            },
+            resolvedIps = ipv4,
+            selectedIp = fallbackRule.ip,
+            sni = fallbackRule.sni,
         )
         val key = listOf(host, "auto-dns", fallbackRule.sni, ipv4.joinToString(",")).joinToString("|")
         return cachedClient(key) { createGithubRuleClient(host, fallbackRule, false) }
