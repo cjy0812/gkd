@@ -57,6 +57,7 @@ class NetworkEventLogTest {
             redirectLocation = null,
             requestId = requestId,
             startedAt = startedAt,
+            source = "IMAGE",
         )
 
         val chain = NetworkEventLog.events.value.filter { it.requestId == requestId }
@@ -95,6 +96,7 @@ class NetworkEventLogTest {
         assertTrue(event.errorChain.orEmpty().contains("connection refused"))
         assertTrue(event.durationMs != null)
     }
+
     @Test
     fun tlsExceptionsAreClassifiedSeparatelyFromTransportFailures() {
         NetworkEventLog.clear()
