@@ -37,6 +37,7 @@ class NetworkEventLogTest {
             method = "GET",
             url = "https://github.com/example/repo/raw/main/file.json",
             requestId = requestId,
+            source = "IMAGE",
         )
         NetworkEventLog.response(
             host = "github.com",
@@ -46,6 +47,7 @@ class NetworkEventLogTest {
             redirectLocation = "https://raw.githubusercontent.com/example/repo/main/file.json?token=secret",
             requestId = requestId,
             startedAt = startedAt,
+            source = "IMAGE",
         )
         NetworkEventLog.response(
             host = "raw.githubusercontent.com",
@@ -60,6 +62,7 @@ class NetworkEventLogTest {
         val chain = NetworkEventLog.events.value.filter { it.requestId == requestId }
         assertEquals(listOf(1, 2), chain.mapNotNull { it.hop })
         assertTrue(chain.all { it.redirectChainId == requestId })
+        assertTrue(chain.all { it.source == "IMAGE" })
         assertEquals("REDIRECT_RESPONSE", chain[1].phase)
         assertEquals("HTTP_RESPONSE", chain[2].phase)
         assertFalse(chain[1].redirectLocation.orEmpty().contains("secret"))
