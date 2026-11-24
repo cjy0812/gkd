@@ -115,7 +115,7 @@ object GithubDnsResolver {
         }
         try {
             val status = connection.responseCode
-            NetworkEventLog.request("dns:$mode", "GET", endpoint, status = status)
+            NetworkEventLog.request("dns:$mode", "GET", endpoint, status = status, source = "DNS", dnsServer = dnsServerLabel(mode, ""))
             check(status in 200..299) { "DoH HTTP $status" }
             val responseText = connection.inputStream.bufferedReader().use { it.readText().also { body ->
                 check(body.length <= 64 * 1024) { "DoH 响应超过 64 KiB" }
@@ -132,7 +132,7 @@ object GithubDnsResolver {
             }.filter { it.isValidIpv4() }
             return ips.distinct().map(InetAddress::getByName)
         } catch (error: Exception) {
-            NetworkEventLog.request("dns:$mode", "GET", endpoint, error = error.javaClass.simpleName)
+            NetworkEventLog.request("dns:$mode", "GET", endpoint, error = error.javaClass.simpleName, source = "DNS", dnsServer = dnsServerLabel(mode, ""))
             throw error
         } finally {
             connection.disconnect()
@@ -197,7 +197,14 @@ object GithubDnsResolver {
                     offset += dataLength
                 }
             }.distinct()
-            NetworkEventLog.request("dns:custom-dns", "UDP", "$server:53/$host")
+            NetworkEventLog.request(
+                host = "dns:custom-dns",
+                method = "UDP",
+                url = "$server:53/$host",
+                source = "DNS",
+                dnsServer = "$server:53/UDP",
+                resolvedIps = addresses.map { it.hostAddress.substringBefore('%') },
+            )
             return addresses
         }
     }
