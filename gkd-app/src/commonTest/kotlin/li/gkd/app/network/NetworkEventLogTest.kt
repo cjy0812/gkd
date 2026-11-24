@@ -1,6 +1,7 @@
 package li.gkd.app.network
 
 import java.io.IOException
+import javax.net.ssl.SSLHandshakeException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -91,4 +92,22 @@ class NetworkEventLogTest {
         assertTrue(event.errorChain.orEmpty().contains("connection refused"))
         assertTrue(event.durationMs != null)
     }
+    @Test
+    fun tlsExceptionsAreClassifiedSeparatelyFromTransportFailures() {
+        NetworkEventLog.clear()
+        val requestId = NetworkEventLog.newRequestId()
+        NetworkEventLog.requestFailed(
+            host = "github.com",
+            method = "GET",
+            url = "https://github.com/example/repo",
+            error = IOException("request failed", SSLHandshakeException("certificate rejected")),
+            requestId = requestId,
+            startedAt = System.currentTimeMillis(),
+        )
+
+        val event = NetworkEventLog.events.value.last()
+        assertEquals("TLS_HANDSHAKE_FAILED", event.phase)
+        assertTrue(event.errorChain.orEmpty().contains("certificate rejected"))
+    }
+
 }
